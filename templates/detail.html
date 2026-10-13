@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ trx.kode }} - Kasir Sederhana{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Transaksi {{ trx.kode }}</h1>
+  <div>
+    <a class="btn btn-ghost" href="{{ url_for('riwayat') }}">← Riwayat</a>
+    <button class="btn" onclick="window.print()">🖨️ Cetak</button>
+  </div>
+</div>
+
+<div class="card struk">
+  <div class="struk-head">
+    <h2>🏪 Kasir Sederhana</h2>
+    <p class="muted">Warung Demo &middot; Jl. Contoh No. 1</p>
+    <p class="muted small">
+      {{ trx.kode }} &middot; {{ trx.created_at.replace('T', ' ')[:16] }}
+    </p>
+  </div>
+
+  <table class="table">
+    <thead>
+      <tr><th>Barang</th><th class="right">Harga</th><th class="right">Qty</th><th class="right">Subtotal</th></tr>
+    </thead>
+    <tbody>
+      {% for it in items %}
+      <tr>
+        <td>{{ it.nama_barang }}</td>
+        <td class="right">{{ it.harga_satuan | rupiah }}</td>
+        <td class="right">{{ it.qty }}</td>
+        <td class="right">{{ it.subtotal | rupiah }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="struk-total">
+    <div class="total-row"><span>Total</span><strong>{{ trx.total | rupiah }}</strong></div>
+    <div class="total-row"><span>Bayar</span><span>{{ trx.bayar | rupiah }}</span></div>
+    <div class="total-row kembali-row"><span>Kembali</span><strong>{{ trx.kembali | rupiah }}</strong></div>
+  </div>
+
+  {% if trx.catatan %}
+  <p class="muted small">Catatan: {{ trx.catatan }}</p>
+  {% endif %}
+
+  <p class="muted small center">— Terima kasih, selamat berbelanja —</p>
+</div>
+
+{% if session.user and request.endpoint == 'transaksi_detail' %}
+<form method="post" action="{{ url_for('transaksi_hapus', tid=trx.id) }}"
+      onsubmit="return confirm('Hapus transaksi ini? Stok akan dikembalikan.')">
+  <button class="btn btn-danger" type="submit">Hapus Transaksi</button>
+</form>
+{% endif %}
+{% endblock %}

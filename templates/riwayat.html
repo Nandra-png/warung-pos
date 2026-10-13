@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Riwayat - Kasir Sederhana{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Riwayat Transaksi</h1>
+  <form class="search" method="get" action="{{ url_for('riwayat') }}">
+    <input type="date" name="tanggal" value="{{ tanggal }}">
+    <button class="btn" type="submit">Filter</button>
+    {% if tanggal %}<a class="btn btn-ghost" href="{{ url_for('riwayat') }}">Semua</a>{% endif %}
+  </form>
+</div>
+
+<div class="card">
+  <h2>
+    {% if tanggal %}Transaksi {{ tanggal }}{% else %}100 Transaksi Terakhir{% endif %}
+    <span class="badge">{{ transaksi | length }} trx</span>
+  </h2>
+  {% if transaksi %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Kode</th><th>Waktu</th><th>Catatan</th>
+        <th class="right">Total</th><th class="right">Bayar</th>
+        <th class="right">Kembali</th><th class="center">Aksi</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in transaksi %}
+      <tr>
+        <td><a href="{{ url_for('transaksi_detail', tid=t.id) }}">{{ t.kode }}</a></td>
+        <td class="muted">{{ t.created_at.replace('T', ' ')[:16] }}</td>
+        <td class="muted">{{ t.catatan or '-' }}</td>
+        <td class="right"><strong>{{ t.total | rupiah }}</strong></td>
+        <td class="right muted">{{ t.bayar | rupiah }}</td>
+        <td class="right muted">{{ t.kembali | rupiah }}</td>
+        <td class="center nowrap">
+          <a class="btn btn-sm" href="{{ url_for('transaksi_detail', tid=t.id) }}">Detail</a>
+          <form method="post" action="{{ url_for('transaksi_hapus', tid=t.id) }}"
+                class="inline" onsubmit="return confirm('Hapus {{ t.kode }}? Stok akan dikembalikan.')">
+            <button class="btn btn-sm btn-danger" type="submit">Hapus</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="3" class="right"><strong>Total</strong></td>
+        <td class="right"><strong>{{ total | rupiah }}</strong></td>
+        <td colspan="3"></td>
+      </tr>
+    </tfoot>
+  </table>
+  {% else %}
+  <p class="muted">Belum ada transaksi{% if tanggal %} pada tanggal ini{% endif %}.</p>
+  {% endif %}
+</div>
+{% endblock %}

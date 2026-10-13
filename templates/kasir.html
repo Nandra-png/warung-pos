@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Kasir - Kasir Sederhana{% endblock %}
+
+{% block content %}
+<h1>Kasir</h1>
+<p class="muted">Klik barang untuk menambah ke keranjang, lalu simpan transaksi.</p>
+
+<div class="kasir-layout">
+  <div class="card">
+    <h2>Pilih Barang</h2>
+    <input type="text" id="cariBarang" class="input-full" placeholder="🔍 Cari barang..." oninput="filterBarang()">
+    <div class="produk-grid" id="produkGrid">
+      {% for b in barang_list %}
+      <button class="produk {{ 'produk-habis' if b.stok == 0 }}"
+              data-id="{{ b.id }}"
+              data-nama="{{ b.nama }}"
+              data-harga="{{ b.harga_jual }}"
+              data-stok="{{ b.stok }}"
+              {% if b.stok == 0 %}disabled{% endif %}>
+        <span class="produk-nama">{{ b.nama }}</span>
+        <span class="produk-harga">{{ b.harga_jual | rupiah }}</span>
+        <span class="produk-stok">stok {{ b.stok }} {{ b.satuan }}</span>
+      </button>
+      {% else %}
+      <p class="muted">Belum ada barang. <a href="{{ url_for('barang_list') }}">Tambah dulu</a>.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card keranjang">
+    <h2>Keranjang</h2>
+    <div id="keranjangList" class="keranjang-list">
+      <p class="muted" id="keranjangKosong">Belum ada item.</p>
+    </div>
+
+    <div class="total-box">
+      <div class="total-row"><span>Total</span><strong id="totalText">Rp 0</strong></div>
+      <label class="bayar-label">Uang Bayar
+        <input type="number" id="bayarInput" class="input-full" min="0" placeholder="0" oninput="hitungKembali()">
+      </label>
+      <div class="total-row kembali-row"><span>Kembalian</span><strong id="kembaliText">Rp 0</strong></div>
+      <label class="bayar-label">Catatan (opsional)
+        <input type="text" id="catatanInput" class="input-full" placeholder="cth: bon, pelanggan Bu Ani">
+      </label>
+      <button class="btn btn-primary btn-block" id="btnSimpan" onclick="simpanTransaksi()">💾 Simpan Transaksi</button>
+      <button class="btn btn-ghost btn-block" onclick="kosongkanKeranjang()">Kosongkan</button>
+    </div>
+    <div id="kasirAlert" class="alert hidden"></div>
+  </div>
+</div>
+
+<div id="strukModal" class="modal hidden">
+  <div class="modal-box">
+    <h2>✅ Transaksi Tersimpan</h2>
+    <div id="strukIsi"></div>
+    <button class="btn btn-primary btn-block" onclick="tutupStruk()">Tutup</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let keranjang = [];   // {id, nama, harga, qty, stok}
+const stokMap = {};
+
+document.querySelectorAll('.produk').forEach(el => {
+  stokMap[el.dataset.id] = parseInt(el.dataset.stok);
+  el.addEventListener('click', () => tambahItem(el.dataset));
+});
+
+function rupiah(n) {
+  return 'Rp ' + (n || 0).toLocaleString('id-ID');
+}
+
+function tambahItem(d) {
+  const id = d.id;
+  const ada = keranjang.find(x => x.id === id);
+  const stok = stokMap[id];
+  if (ada) {
+    if (ada.qty + 1 > stok) { alert('Stok ' + d.nama + ' hanya ' + stok); return; }
+    ada.qty++;
+  } else {
+    if (stok < 1) { alert('Stok habis'); return; }
+    keranjang.push({ id: id, nama: d.nama, harga: parseInt(d.harga), qty: 1, stok: stok });
+  }
+  render();
+}
+
+function ubahQty(id, delta) {
+  const it = keranjang.find(x => x.id === id);
+  if (!it) return;
+  it.qty += delta;
+  if (it.qty > it.stok) { it.qty = it.stok; alert('Stok maksimal ' + it.stok); }
+  if (it.qty <= 0) keranjang = keranjang.filter(x => x.id !== id);
+  render();
+}
+
+function hapusItem(id) {
+  keranjang = keranjang.filter(x => x.id !== id);
+  render();
+}
+
+function total() {
+  return keranjang.reduce((s, x) => s + x.harga * x.qty, 0);
+}
+
+function render() {
+  const box = document.getElementById('keranjangList');
+  if (!keranjang.length) {
+    box.innerHTML = '<p class="muted" id="keranjangKosong">Belum ada item.</p>';
+  } else {
+    box.innerHTML = keranjang.map(it => `
+      <div class="keranjang-item">
+        <div class="ki-info">
+          <strong>${it.nama}</strong>
+          <span class="muted">${rupiah(it.harga)} x ${it.qty} = ${rupiah(it.harga * it.qty)}</span>
+        </div>
+        <div class="ki-aksi">
+          <button class="btn btn-xs" onclick="ubahQty('${it.id}', -1)">−</button>
+          <span class="qty">${it.qty}</span>
+          <button class="btn btn-xs" onclick="ubahQty('${it.id}', 1)">+</button>
+          <button class="btn btn-xs btn-danger" onclick="hapusItem('${it.id}')">✕</button>
+        </div>
+      </div>`).join('');
+  }
+  document.getElementById('totalText').textContent = rupiah(total());
+  hitungKembali();
+}
+
+function hitungKembali() {
+  const bayar = parseInt(document.getElementById('bayarInput').value || 0);
+  const kembali = bayar - total();
+  document.getElementById('kembaliText').textContent =
+    rupiah(kembali > 0 ? kembali : 0);
+}
+
+function kosongkanKeranjang() {
+  if (keranjang.length && !confirm('Kosongkan keranjang?')) return;
+  keranjang = [];
+  document.getElementById('bayarInput').value = '';
+  document.getElementById('catatanInput').value = '';
+  render();
+}
+
+function showAlert(msg, tipe) {
+  const el = document.getElementById('kasirAlert');
+  el.textContent = msg;
+  el.className = 'alert alert-' + (tipe || 'error');
+}
+
+function filterBarang() {
+  const q = document.getElementById('cariBarang').value.toLowerCase();
+  document.querySelectorAll('.produk').forEach(el => {
+    el.style.display = el.dataset.nama.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+async function simpanTransaksi() {
+  if (!keranjang.length) { showAlert('Keranjang masih kosong.'); return; }
+
+  const bayarRaw = document.getElementById('bayarInput').value;
+  const bayar = bayarRaw === '' ? total() : parseInt(bayarRaw);
+  if (bayar < total()) { showAlert('Uang bayar kurang dari total.'); return; }
+
+  const payload = {
+    items: keranjang.map(x => ({ barang_id: x.id, qty: x.qty })),
+    bayar: bayar,
+    catatan: document.getElementById('catatanInput').value
+  };
+
+  const btn = document.getElementById('btnSimpan');
+  btn.disabled = true;
+  btn.textContent = 'Menyimpan...';
+
+  try {
+    const res = await fetch('{{ url_for("kasir_simpan") }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!data.ok) { showAlert(data.error || 'Gagal menyimpan.'); return; }
+    tampilStruk(data);
+    keranjang = [];
+    document.getElementById('bayarInput').value = '';
+    document.getElementById('catatanInput').value = '';
+    render();
+    refreshStok();
+  } catch (e) {
+    showAlert('Error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Simpan Transaksi';
+  }
+}
+
+function tampilStruk(d) {
+  document.getElementById('strukIsi').innerHTML = `
+    <p class="muted">Kode: <strong>${d.kode}</strong></p>
+    <table class="table">
+      <thead><tr><th>Item</th><th class="right">Qty</th><th class="right">Subtotal</th></tr></thead>
+      <tbody>
+        ${d.items.map(i => `<tr><td>${i.nama}</td><td class="right">${i.qty}</td><td class="right">${rupiah(i.subtotal)}</td></tr>`).join('')}
+      </tbody>
+    </table>
+    <div class="total-row"><span>Total</span><strong>${rupiah(d.total)}</strong></div>
+    <div class="total-row"><span>Bayar</span><strong>${rupiah(d.bayar)}</strong></div>
+    <div class="total-row kembali-row"><span>Kembali</span><strong>${rupiah(d.kembali)}</strong></div>
+    <p class="muted small">Struk lengkap: <a href="${d.struk_url}">buka halaman transaksi</a></p>`;
+  document.getElementById('strukModal').classList.remove('hidden');
+}
+
+function tutupStruk() {
+  document.getElementById('strukModal').classList.add('hidden');
+}
+
+async function refreshStok() {
+  const res = await fetch('{{ url_for("api_barang") }}');
+  const list = await res.json();
+  list.forEach(b => {
+    stokMap[b.id] = b.stok;
+    const el = document.querySelector(`.produk[data-id="${b.id}"]`);
+    if (el) {
+      el.dataset.stok = b.stok;
+      el.querySelector('.produk-stok').textContent = `stok ${b.stok} ${b.satuan}`;
+      el.classList.toggle('produk-habis', b.stok === 0);
+      el.disabled = b.stok === 0;
+    }
+  });
+}
+
+render();
+</script>
+{% endblock %}

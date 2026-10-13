@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Barang - Kasir Sederhana{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Daftar Barang</h1>
+  <form class="search" method="get" action="{{ url_for('barang_list') }}">
+    <input type="text" name="q" value="{{ q }}" placeholder="Cari barang...">
+    <button class="btn" type="submit">Cari</button>
+    {% if q %}<a class="btn btn-ghost" href="{{ url_for('barang_list') }}">Reset</a>{% endif %}
+  </form>
+</div>
+
+<div class="card">
+  <h2>Tambah Barang</h2>
+  <form method="post" action="{{ url_for('barang_tambah') }}" class="form form-inline">
+    <label>Nama <input type="text" name="nama" required placeholder="cth: Sabun Mandi"></label>
+    <label>Harga Beli <input type="number" name="harga_beli" min="0" value="0" required></label>
+    <label>Harga Jual <input type="number" name="harga_jual" min="0" value="0" required></label>
+    <label>Stok <input type="number" name="stok" min="0" value="0" required></label>
+    <label>Satuan <input type="text" name="satuan" value="pcs" size="6"></label>
+    <button class="btn btn-primary" type="submit">+ Tambah</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Data Barang <span class="badge">{{ barang_list | length }}</span></h2>
+  {% if barang_list %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Nama</th>
+        <th class="right">Harga Beli</th>
+        <th class="right">Harga Jual</th>
+        <th class="right">Margin</th>
+        <th class="right">Stok</th>
+        <th class="center">Aksi</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in barang_list %}
+      <tr>
+        <td><strong>{{ b.nama }}</strong></td>
+        <td class="right muted">{{ b.harga_beli | rupiah }}</td>
+        <td class="right">{{ b.harga_jual | rupiah }}</td>
+        <td class="right muted">{{ (b.harga_jual - b.harga_beli) | rupiah }}</td>
+        <td class="right">
+          <span class="pill {{ 'pill-danger' if b.stok == 0 else ('pill-warn' if b.stok <= 5 else 'pill-ok') }}">
+            {{ b.stok }} {{ b.satuan }}
+          </span>
+        </td>
+        <td class="center nowrap">
+          <button class="btn btn-sm" onclick="toggleEdit({{ b.id }})">Edit</button>
+          <form method="post" action="{{ url_for('barang_hapus', bid=b.id) }}"
+                class="inline" onsubmit="return confirm('Hapus {{ b.nama }}?')">
+            <button class="btn btn-sm btn-danger" type="submit">Hapus</button>
+          </form>
+        </td>
+      </tr>
+      <tr id="edit-{{ b.id }}" class="edit-row hidden">
+        <td colspan="6">
+          <form method="post" action="{{ url_for('barang_edit', bid=b.id) }}" class="form form-inline">
+            <label>Nama <input type="text" name="nama" value="{{ b.nama }}" required></label>
+            <label>Harga Beli <input type="number" name="harga_beli" value="{{ b.harga_beli }}" min="0" required></label>
+            <label>Harga Jual <input type="number" name="harga_jual" value="{{ b.harga_jual }}" min="0" required></label>
+            <label>Stok <input type="number" name="stok" value="{{ b.stok }}" min="0" required></label>
+            <label>Satuan <input type="text" name="satuan" value="{{ b.satuan }}" size="6"></label>
+            <button class="btn btn-primary" type="submit">Simpan</button>
+            <button class="btn btn-ghost" type="button" onclick="toggleEdit({{ b.id }})">Batal</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">{% if q %}Tidak ada barang yang cocok dengan "{{ q }}".{% else %}Belum ada barang.{% endif %}</p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleEdit(id) {
+  document.getElementById('edit-' + id).classList.toggle('hidden');
+}
+</script>
+{% endblock %}

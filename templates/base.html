@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Kasir Sederhana{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">🏪 Kasir Sederhana</div>
+    <nav class="nav">
+      <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint == 'index' }}">Dashboard</a>
+      <a href="{{ url_for('kasir') }}" class="{{ 'active' if request.endpoint == 'kasir' }}">Kasir</a>
+      <a href="{{ url_for('barang_list') }}" class="{{ 'active' if request.endpoint == 'barang_list' }}">Barang</a>
+      <a href="{{ url_for('riwayat') }}" class="{{ 'active' if request.endpoint == 'riwayat' }}">Riwayat</a>
+      <a href="{{ url_for('laporan') }}" class="{{ 'active' if request.endpoint == 'laporan' }}">Laporan</a>
+    </nav>
+    <div class="user">
+      {% if session.user %}
+        <span class="who">{{ session.user }}</span>
+        <a class="btn btn-ghost btn-sm" href="{{ url_for('logout') }}">Keluar</a>
+      {% endif %}
+    </div>
+  </header>
+
+  <main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flashes">
+          {% for cat, msg in messages %}
+            <div class="flash flash-{{ cat }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    Kasir Sederhana &middot; Flask + SQLite &middot; dibuat untuk latihan portofolio
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

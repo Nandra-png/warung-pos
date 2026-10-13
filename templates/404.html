@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}404 - Kasir Sederhana{% endblock %}
+
+{% block content %}
+<div class="card center-block">
+  <h1>404</h1>
+  <p class="muted">Halaman yang kamu cari tidak ditemukan.</p>
+  <a class="btn btn-primary" href="{{ url_for('index') }}">Kembali ke Dashboard</a>
+</div>
+{% endblock %}

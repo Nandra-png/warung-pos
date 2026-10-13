@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Laporan - Kasir Sederhana{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Laporan Harian</h1>
+  <form class="search" method="get" action="{{ url_for('laporan') }}">
+    <input type="date" name="tanggal" value="{{ tanggal }}">
+    <button class="btn" type="submit">Lihat</button>
+    <a class="btn btn-ghost" href="{{ url_for('laporan') }}">Hari Ini</a>
+  </form>
+</div>
+
+<div class="stats">
+  <div class="stat">
+    <span class="stat-label">Jumlah Transaksi</span>
+    <span class="stat-value">{{ ringkas.jumlah }}</span>
+  </div>
+  <div class="stat stat-accent">
+    <span class="stat-label">Omzet</span>
+    <span class="stat-value">{{ ringkas.omzet | rupiah }}</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Laba Kotor</span>
+    <span class="stat-value">{{ laba | rupiah }}</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Kembalian Keluar</span>
+    <span class="stat-value">{{ ringkas.kembali | rupiah }}</span>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Barang Terlaris</h2>
+    {% if terlaris %}
+    <table class="table">
+      <thead>
+        <tr><th>Barang</th><th class="right">Terjual</th><th class="right">Omzet</th></tr>
+      </thead>
+      <tbody>
+        {% for b in terlaris %}
+        <tr>
+          <td>{{ b.nama_barang }}</td>
+          <td class="right"><span class="pill pill-ok">{{ b.qty }}</span></td>
+          <td class="right">{{ b.omzet | rupiah }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">Belum ada penjualan pada tanggal ini.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Tren Omzet (7 hari terakhir)</h2>
+    {% if tren %}
+    <div class="chart">
+      {% set maxval = tren | map(attribute='omzet') | max %}
+      {% for t in tren %}
+      <div class="bar-wrap" title="{{ t.tgl }}: {{ t.omzet | rupiah }}">
+        <div class="bar" style="height: {{ (t.omzet / maxval * 100) if maxval else 0 }}%"></div>
+        <span class="bar-label">{{ t.tgl[5:] }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">Belum ada data.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <h2>Daftar Transaksi {{ tanggal }}</h2>
+  {% if daftar %}
+  <table class="table">
+    <thead>
+      <tr><th>Kode</th><th>Jam</th><th class="right">Total</th><th class="right">Laba</th></tr>
+    </thead>
+    <tbody>
+      {% for t in daftar %}
+      <tr>
+        <td><a href="{{ url_for('transaksi_detail', tid=t.id) }}">{{ t.kode }}</a></td>
+        <td class="muted">{{ t.created_at[11:16] }}</td>
+        <td class="right">{{ t.total | rupiah }}</td>
+        <td class="right muted">{{ (t.total - t.kembali) | rupiah }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">Tidak ada transaksi pada {{ tanggal }}.</p>
+  {% endif %}
+</div>
+{% endblock %}
