@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Masuk - Kasir Sederhana{% endblock %}
+
+{% block content %}
+<div class="login-wrap">
+  <div class="card login-card">
+    <h1>🏪 Kasir Sederhana</h1>
+    <p class="muted">Masuk untuk mulai mencatat penjualan.</p>
+
+    <form method="post" class="form">
+      <label>
+        Username
+        <input type="text" name="username" placeholder="admin" required autofocus>
+      </label>
+      <label>
+        Password
+        <input type="password" name="password" placeholder="••••••••" required>
+      </label>
+      <button class="btn btn-primary btn-block" type="submit">Masuk</button>
+    </form>
+
+    <p class="hint">Demo login: <code>admin</code> / <code>admin123</code></p>
+  </div>
+</div>
+{% endblock %}

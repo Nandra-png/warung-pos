@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Kasir Sederhana{% endblock %}
+
+{% block content %}
+<h1>Dashboard</h1>
+<p class="muted">Ringkasan warung per {{ hari_ini }}.</p>
+
+<div class="stats">
+  <div class="stat">
+    <span class="stat-label">Total Barang</span>
+    <span class="stat-value">{{ total_barang }}</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Nilai Stok</span>
+    <span class="stat-value">{{ nilai_stok | rupiah }}</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Transaksi Hari Ini</span>
+    <span class="stat-value">{{ trx_count }}</span>
+  </div>
+  <div class="stat stat-accent">
+    <span class="stat-label">Omzet Hari Ini</span>
+    <span class="stat-value">{{ trx_total | rupiah }}</span>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Transaksi Terakhir</h2>
+    {% if terbaru %}
+      <table class="table">
+        <thead>
+          <tr><th>Kode</th><th>Waktu</th><th class="right">Total</th></tr>
+        </thead>
+        <tbody>
+          {% for t in terbaru %}
+          <tr>
+            <td><a href="{{ url_for('transaksi_detail', tid=t.id) }}">{{ t.kode }}</a></td>
+            <td class="muted">{{ t.created_at[11:16] }}</td>
+            <td class="right">{{ t.total | rupiah }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">Belum ada transaksi. <a href="{{ url_for('kasir') }}">Mulai jualan</a>.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Stok Menipis <span class="badge">≤ 5</span></h2>
+    {% if stok_kritis %}
+      <table class="table">
+        <thead>
+          <tr><th>Barang</th><th class="right">Stok</th></tr>
+        </thead>
+        <tbody>
+          {% for b in stok_kritis %}
+          <tr>
+            <td>{{ b.nama }}</td>
+            <td class="right">
+              <span class="pill {{ 'pill-danger' if b.stok == 0 else 'pill-warn' }}">
+                {{ b.stok }} {{ b.satuan }}
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">Semua stok aman. 👍</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
