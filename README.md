@@ -1,40 +1,40 @@
 # warung-pos
 
-aplikasi kasir warung, nyatet barang sama transaksi. flask + sqlite
+Point of sale for a small shop. Tracks stock and sales. Flask + SQLite.
 
 ```
 pip install -r requirements.txt
 python app.py
 ```
 
-buka `http://127.0.0.1:5000`, login dulu
+Open `http://127.0.0.1:5000`, login first.
 
-default user `admin` password `admin123`, bisa diganti lewat env `KASIR_USER` sama `KASIR_PASS`
+Default credentials `admin` / `admin123`. Override with `KASIR_USER` and `KASIR_PASS` env vars.
 
-## halaman
+## Pages
 
 ```
 /login              login
-/barang             daftar barang
-/barang/tambah      tambah barang
-/kasir              transaksi
-/riwayat            riwayat transaksi
-/laporan            laporan harian
+/barang             stock list
+/barang/tambah      add item
+/kasir              checkout
+/riwayat            transaction history
+/laporan            daily report
 ```
 
-semua selain `/login` pake `@login_required`, kalo belum login dibalikin ke `/login?next=...`
+Everything except `/login` is wrapped in `@login_required`. Logged-out requests bounce to `/login?next=...`.
 
-## teknis
+## How it works
 
-stok sama harga dicek harus angka positif, nama barang gak boleh kosong, kalo salah dibalikin ke formnya sama pesan error
+Price and stock must parse as positive numbers, item name can't be empty. Invalid input re-renders the form with an error message.
 
-transaksi pake transaction, jadi stok sama recordnya keupdate barengan, kalo salah satu gagal ya gak ada yang kesimpen
+Checkout runs inside a transaction, so stock and the sale record update together. If one fails, nothing is written.
 
-query pake `?` bukan concat
+Queries use `?` placeholders, no concatenation.
 
-## tes
+## Test
 
-login dulu terus tambah barang
+Log in, then add an item:
 
 ```bash
 curl -c cookie.txt -X POST http://localhost:5000/login -d "username=admin&password=admin123"
@@ -44,12 +44,12 @@ curl -c cookie.txt -X POST http://localhost:5000/login -d "username=admin&passwo
 curl -b cookie.txt -X POST http://localhost:5000/barang/tambah -d "nama=Indomie&harga_beli=2500&harga_jual=3500&stok=50"
 ```
 
-coba akses `/barang` tanpa cookie, hasilnya 302 ke `/login`
+Request `/barang` without the cookie. Returns 302 to `/login`.
 
-## todo
+## Todo
 
-- belum ada halaman ganti password
-- belum ada barcode, masih ketik manual
-- belum bisa cetak struk
-- laporan cuma harian, belom bulanan
-- tampilan masih basic
+- no change-password page
+- no barcode scanning, manual entry only
+- no receipt printing
+- daily report only, no monthly
+- basic styling
