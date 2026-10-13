@@ -1,59 +1,55 @@
 # warung-pos
 
-jadi warungnya emak saya itu masih nyatet pake buku, terus suka kelupaan naruh bukunya terus bingung stoknya berapa, jadi saya coba bikin aplikasi kecil buat nyatet barang sama transaksinya
-
-awalnya cuma buat emak saya, terus kepikiran sekalian aja saya taro di github biar ada isinya
-
-## isinya apa
-
-pake flask sama sqlite, simpel aja soalnya yang mau pake juga emak saya yang gak terlalu biasa komputer, jadi saya bikin yang tombolnya gede gede sama gak banyak menu
-
-ada beberapa halaman:
-- daftar barang, buat tambah barang sama liat stok
-- kasir, buat jualan, pilih barang masukin jumlah nanti totalnya keitung sendiri
-- riwayat, buat liat udah pernah jual apa aja
-- laporan harian, buat liat pemasukan hari ini berapa
-
-abis itu saya tambahin login juga, soalnya kata temen saya kalo gak ada login nanti sapaun bisa ngutak ngatik stoknya, jadi sekarang harus masuk dulu baru bisa pake
-
-usernamenya admin passwordnya admin123, ini masih default sih belum bisa ganti, tapi bisa diubah lewat environment variable
-
-## cara jalanin
+Point of sale for a small shop. Tracks stock and sales. Flask + SQLite.
 
 ```
 pip install -r requirements.txt
-```
-
-terus
-
-```
 python app.py
 ```
 
-buka `http://127.0.0.1:5000`, nanti diminta login dulu
+Open `http://127.0.0.1:5000`, login first.
 
-## yang saya pikirin waktunya bikin
+Default credentials `admin` / `admin123`. Override with `KASIR_USER` and `KASIR_PASS` env vars.
 
-kemarin emak saya sempet salah masukin stok, harusnya 10 malah jadi 100, untungnya langsung keliatan, dari situ saya jadi mikir kalo inputnya harus saya cek, jangan sampe bisa masukin angka minus atau huruf di kolom harga, soalnya kalo minus nanti itungannya kacau
+## Pages
 
-terus soal login tadi, awalnya saya gak kepikiran, terus saya coba buka halamannya di browser lain eh ternyata bisa masuk tanpa login, dari situ saya baru nambahin, sekarang kalo coba buka /barang langsung dibalikin ke halaman login
+```
+/login              login
+/barang             stock list
+/barang/tambah      add item
+/kasir              checkout
+/riwayat            transaction history
+/laporan            daily report
+```
 
-query ke database saya pake tanda tanya, bukan digabung, kebiasaan aja sih tapi katanya lebih aman
+Everything except `/login` is wrapped in `@login_required`. Logged-out requests bounce to `/login?next=...`.
 
-## yang belum saya kerjain
+## How it works
 
-- passwordnya masih default, belum ada halaman buat ganti
-- belom ada barcode, masih ketik manual
-- belom bisa cetak struk
-- laporannya cuma harian, belom bulanan
-- tampilannya masih jelek, saya gak bisa desain hehe
+Price and stock must parse as positive numbers, item name can't be empty. Invalid input re-renders the form with an error message.
 
-## yang saya pelajarin
+Checkout runs inside a transaction, so stock and the sale record update together. If one fails, nothing is written.
 
-yang paling nempel itu soal validasi input, awalnya saya pikir ah cuma kolom harga doang paling isinya angka semua, eh ternyata pas saya coba masukin huruf malah error aplikasinya, dari situ saya ngerti kenapa input dari user itu gak boleh langsung dipercaya
+Queries use `?` placeholders, no concatenation.
 
-terus saya juga jadi ngerti kenapa sqlite dipake kalo aplikasinya kecil, soalnya gampang banget, tinggal bikin file, gak perlu install server database
+## Test
 
-yang terakhir soal login tadi, saya baru ngerti kalo halaman yang keliatan aman bisa jadi bocor kalo gak dicek satu satu, saya hampir aja gak sadar
+Log in, then add an item:
 
-masih belajar btw, kalo ada yang salah mohon dikoreksi
+```bash
+curl -c cookie.txt -X POST http://localhost:5000/login -d "username=admin&password=admin123"
+```
+
+```bash
+curl -b cookie.txt -X POST http://localhost:5000/barang/tambah -d "nama=Indomie&harga_beli=2500&harga_jual=3500&stok=50"
+```
+
+Request `/barang` without the cookie. Returns 302 to `/login`.
+
+## Todo
+
+- no change-password page
+- no barcode scanning, manual entry only
+- no receipt printing
+- daily report only, no monthly
+- basic styling
