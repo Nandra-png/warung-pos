@@ -1,10 +1,15 @@
 {% extends "base.html" %}
-{% block title %}404 - Kasir Sederhana{% endblock %}
+{% from "_icons.html" import icon %}
+{% block title %}404 - Warung Pos{% endblock %}
 
 {% block content %}
-<div class="card center-block">
-  <h1>404</h1>
-  <p class="muted">Halaman yang kamu cari tidak ditemukan.</p>
-  <a class="btn btn-primary" href="{{ url_for('index') }}">Kembali ke Dashboard</a>
+<div class="center-block">
+  <div class="ring">{{ icon('alert-triangle') }}</div>
+  <h1 style="font-size:44px;">404</h1>
+  <p class="muted" style="margin-top:8px;">Halaman yang kamu cari tidak ditemukan.</p>
+  <div style="margin-top:18px; display:flex; gap:9px; justify-content:center;">
+    <a class="btn btn-accent" href="{{ url_for('index') }}">{{ icon('dashboard', 'ico sm') }} Dashboard</a>
+    <a class="btn" href="{{ url_for('kasir') }}">{{ icon('cart', 'ico sm') }} Kasir</a>
+  </div>
 </div>
 {% endblock %}

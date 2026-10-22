@@ -1,63 +1,129 @@
 {% extends "base.html" %}
-{% block title %}Dashboard - Kasir Sederhana{% endblock %}
+{% from "_icons.html" import icon %}
+{% block title %}Dashboard - Warung Pos{% endblock %}
+
+{% set nama_hari = ['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'] %}
 
 {% block content %}
-<h1>Dashboard</h1>
-<p class="muted">Ringkasan warung per {{ hari_ini }}.</p>
-
-<div class="stats">
-  <div class="stat">
-    <span class="stat-label">Total Barang</span>
-    <span class="stat-value">{{ total_barang }}</span>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-sub">Ringkasan warung per {{ now() | tanggal_panjang_id }}</p>
   </div>
-  <div class="stat">
-    <span class="stat-label">Nilai Stok</span>
-    <span class="stat-value">{{ nilai_stok | rupiah }}</span>
-  </div>
-  <div class="stat">
-    <span class="stat-label">Transaksi Hari Ini</span>
-    <span class="stat-value">{{ trx_count }}</span>
-  </div>
-  <div class="stat stat-accent">
-    <span class="stat-label">Omzet Hari Ini</span>
-    <span class="stat-value">{{ trx_total | rupiah }}</span>
+  <div class="page-aksi" style="margin-left:auto; display:flex; gap:9px;">
+    <a class="btn btn-outline" href="{{ url_for('barang_list') }}">{{ icon('package', 'ico sm') }} Barang</a>
+    <a class="btn btn-accent" href="{{ url_for('kasir') }}">{{ icon('cart', 'ico sm') }} Mulai Kasir</a>
   </div>
 </div>
 
-<div class="grid-2">
-  <div class="card">
-    <h2>Transaksi Terakhir</h2>
-    {% if terbaru %}
-      <table class="table">
-        <thead>
-          <tr><th>Kode</th><th>Waktu</th><th class="right">Total</th></tr>
-        </thead>
-        <tbody>
-          {% for t in terbaru %}
-          <tr>
-            <td><a href="{{ url_for('transaksi_detail', tid=t.id) }}">{{ t.kode }}</a></td>
-            <td class="muted">{{ t.created_at[11:16] }}</td>
-            <td class="right">{{ t.total | rupiah }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    {% else %}
-      <p class="muted">Belum ada transaksi. <a href="{{ url_for('kasir') }}">Mulai jualan</a>.</p>
-    {% endif %}
+{# ---------------- Kartu statistik ---------------- #}
+<div class="stats">
+  <div class="stat">
+    <div class="stat-top">
+      <span class="stat-ico">{{ icon('coins') }}</span>
+      {% if trx_count %}
+        <span class="trend up">{{ icon('trend-up') }} {{ trx_count }} trx</span>
+      {% else %}
+        <span class="trend flat">{{ icon('trend-down') }} belum ada</span>
+      {% endif %}
+    </div>
+    <span class="stat-label">Penjualan Hari Ini</span>
+    <span class="stat-value">{{ trx_total | rupiah }}</span>
   </div>
 
+  <div class="stat">
+    <div class="stat-top">
+      <span class="stat-ico is-blue">{{ icon('receipt') }}</span>
+      <span class="trend flat">{{ hari_ini }}</span>
+    </div>
+    <span class="stat-label">Jumlah Transaksi</span>
+    <span class="stat-value">{{ trx_count }}</span>
+  </div>
+
+  <div class="stat">
+    <div class="stat-top">
+      <span class="stat-ico is-green">{{ icon('flame') }}</span>
+      {% if terlaris_hari %}
+        <span class="trend up">{{ icon('trend-up') }} {{ terlaris_hari[0].qty }} terjual</span>
+      {% else %}
+        <span class="trend flat">-</span>
+      {% endif %}
+    </div>
+    <span class="stat-label">Barang Terlaris</span>
+    <span class="stat-value" style="font-size:19px;">
+      {{ terlaris_hari[0].nama_barang if terlaris_hari else 'Belum ada' }}
+    </span>
+  </div>
+
+  <div class="stat">
+    <div class="stat-top">
+      <span class="stat-ico is-amber">{{ icon('alert-triangle') }}</span>
+      {% if stok_kritis %}
+        <span class="trend down">{{ icon('trend-down') }} perlu restock</span>
+      {% else %}
+        <span class="trend up">{{ icon('check') }} aman</span>
+      {% endif %}
+    </div>
+    <span class="stat-label">Stok Menipis</span>
+    <span class="stat-value">{{ stok_kritis | length }} <span class="dim" style="font-size:14px;font-weight:500;">item</span></span>
+  </div>
+</div>
+
+{# ---------------- Grafik 7 hari ---------------- #}
+<div class="card">
+  <div class="card-head">
+    <div>
+      <h2>Penjualan 7 Hari Terakhir</h2>
+      <p class="sub">Total omzet per hari</p>
+    </div>
+    <div class="grow">
+      <span class="pill pill-muted">
+        Total {{ (tren | map(attribute='omzet') | sum) | rupiah }}
+      </span>
+    </div>
+  </div>
+
+  {% if tren %}
+    {% set maxval = tren | map(attribute='omzet') | max %}
+    <div class="chart-bars">
+      {% for t in tren %}
+      <div class="bar-wrap" title="{{ t.tgl }}: {{ t.omzet | rupiah }}{% if t.jumlah %} ({{ t.jumlah }} transaksi){% endif %}">
+        {% if maxval %}
+        <span class="bar-val">{{ t.omzet | rupiah if t.omzet < 1000000 else ((t.omzet / 1000) | round | int) ~ 'rb' }}</span>
+        {% endif %}
+        <div class="bar{{ ' bar-kosong' if not t.omzet }}" style="height: {{ (t.omzet / maxval * 100) if maxval else 3 }}%"></div>
+        <span class="bar-label{{ ' is-today' if t.tgl == hari_ini }}">{{ t.tgl[8:] }}/{{ t.tgl[5:7] }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% if not maxval %}
+    <p class="dim small center" style="margin-top:10px;">
+      Belum ada penjualan dalam 7 hari terakhir. Grafik terisi setelah kamu menyimpan transaksi di Kasir.
+    </p>
+    {% endif %}
+  {% endif %}
+</div>
+
+{# ---------------- Baris dua kolom ---------------- #}
+<div class="grid-2">
   <div class="card">
-    <h2>Stok Menipis <span class="badge">≤ 5</span></h2>
+    <div class="card-head">
+      <h2>Stok Menipis</h2>
+      <div class="grow"><span class="badge">&le; 5</span></div>
+    </div>
     {% if stok_kritis %}
+    <div class="table-wrap">
       <table class="table">
-        <thead>
-          <tr><th>Barang</th><th class="right">Stok</th></tr>
-        </thead>
+        <thead><tr><th>Barang</th><th class="right">Stok</th></tr></thead>
         <tbody>
           {% for b in stok_kritis %}
           <tr>
-            <td>{{ b.nama }}</td>
+            <td>
+              <div class="row-item">
+                <span class="row-thumb">{{ b.nama[0] | upper }}</span>
+                <span>{{ b.nama }}</span>
+              </div>
+            </td>
             <td class="right">
               <span class="pill {{ 'pill-danger' if b.stok == 0 else 'pill-warn' }}">
                 {{ b.stok }} {{ b.satuan }}
@@ -67,9 +133,89 @@
           {% endfor %}
         </tbody>
       </table>
+    </div>
     {% else %}
-      <p class="muted">Semua stok aman. 👍</p>
+    <div class="empty">
+      <span class="ring">{{ icon('check-circle') }}</span>
+      <span class="t">Semua stok aman</span>
+      <span class="s">Tidak ada barang dengan stok 5 atau kurang.</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>Transaksi Terakhir</h2>
+      <div class="grow">
+        <a class="btn btn-ghost btn-sm" href="{{ url_for('riwayat') }}">Semua {{ icon('chevron-right', 'ico sm') }}</a>
+      </div>
+    </div>
+    {% if terbaru %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Kode</th><th>Waktu</th><th class="right">Total</th></tr></thead>
+        <tbody>
+          {% for t in terbaru %}
+          <tr class="clickable" onclick="location.href='{{ url_for('transaksi_detail', tid=t.id) }}'">
+            <td><span class="pill pill-info mono">{{ t.kode }}</span></td>
+            <td class="dim mono">{{ t.created_at[11:16] }}</td>
+            <td class="right num"><strong>{{ t.total | rupiah }}</strong></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">
+      <span class="ring">{{ icon('receipt') }}</span>
+      <span class="t">Belum ada transaksi</span>
+      <span class="s">Mulai catat penjualan di halaman Kasir.</span>
+      <a class="btn btn-soft" href="{{ url_for('kasir') }}" style="margin-top:8px;">{{ icon('cart', 'ico sm') }} Buka Kasir</a>
+    </div>
     {% endif %}
   </div>
 </div>
+
+{# ---------------- Inventori ringkas ---------------- #}
+<div class="grid-2">
+  <div class="stat">
+    <div class="stat-top">
+      <span class="stat-ico is-blue">{{ icon('layers') }}</span>
+    </div>
+    <span class="stat-label">Total Barang</span>
+    <span class="stat-value">{{ total_barang }} <span class="dim" style="font-size:14px;font-weight:500;">jenis</span></span>
+  </div>
+  <div class="stat">
+    <div class="stat-top">
+      <span class="stat-ico is-green">{{ icon('wallet') }}</span>
+    </div>
+    <span class="stat-label">Nilai Stok (harga beli)</span>
+    <span class="stat-value">{{ nilai_stok | rupiah }}</span>
+  </div>
+</div>
+
+{# ---------------- Terlaris hari ini ---------------- #}
+{% if terlaris_hari %}
+<div class="card">
+  <div class="card-head">
+    <h2>Terlaris Hari Ini</h2>
+    <div class="grow"><span class="badge">{{ terlaris_hari | length }} barang</span></div>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>#</th><th>Barang</th><th class="right">Terjual</th><th class="right">Omzet</th></tr></thead>
+      <tbody>
+        {% for b in terlaris_hari %}
+        <tr>
+          <td class="dim mono">{{ loop.index }}</td>
+          <td><strong>{{ b.nama_barang }}</strong></td>
+          <td class="right"><span class="pill pill-ok">{{ b.qty }}</span></td>
+          <td class="right num">{{ b.omzet | rupiah }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

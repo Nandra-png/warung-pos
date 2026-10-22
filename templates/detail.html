@@ -1,57 +1,72 @@
 {% extends "base.html" %}
-{% block title %}{{ trx.kode }} - Kasir Sederhana{% endblock %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ trx.kode }} - Warung Pos{% endblock %}
 
 {% block content %}
 <div class="page-head">
-  <h1>Transaksi {{ trx.kode }}</h1>
+  <a class="back-btn" href="{{ url_for('riwayat') }}" aria-label="Kembali ke riwayat">{{ icon('arrow-left') }}</a>
   <div>
-    <a class="btn btn-ghost" href="{{ url_for('riwayat') }}">← Riwayat</a>
-    <button class="btn" onclick="window.print()">🖨️ Cetak</button>
+    <h1 class="page-title" style="font-size:24px;">Struk {{ trx.kode }}</h1>
+    <p class="page-sub">{{ trx.created_at.replace('T', ' ')[:16] }}</p>
+  </div>
+  <div class="page-aksi" style="margin-left:auto; display:flex; gap:9px;">
+    <button class="btn no-print" type="button" onclick="window.print()">
+      {{ icon('printer', 'ico sm') }} Cetak
+    </button>
+    <a class="btn no-print" href="{{ url_for('riwayat') }}">{{ icon('history', 'ico sm') }} Riwayat</a>
   </div>
 </div>
 
-<div class="card struk">
+<div class="card struk" style="margin:0 auto;">
   <div class="struk-head">
-    <h2>🏪 Kasir Sederhana</h2>
-    <p class="muted">Warung Demo &middot; Jl. Contoh No. 1</p>
-    <p class="muted small">
-      {{ trx.kode }} &middot; {{ trx.created_at.replace('T', ' ')[:16] }}
-    </p>
+    <span class="logo" aria-hidden="true">{{ icon('store') }}</span>
+    <h2>Warung Pos</h2>
+    <p class="muted small">Warung Demo &middot; Jl. Contoh No. 1</p>
+    <p class="dim tiny mono">{{ trx.kode }} &middot; {{ trx.created_at.replace('T', ' ')[:16] }}</p>
   </div>
 
-  <table class="table">
-    <thead>
-      <tr><th>Barang</th><th class="right">Harga</th><th class="right">Qty</th><th class="right">Subtotal</th></tr>
-    </thead>
-    <tbody>
-      {% for it in items %}
-      <tr>
-        <td>{{ it.nama_barang }}</td>
-        <td class="right">{{ it.harga_satuan | rupiah }}</td>
-        <td class="right">{{ it.qty }}</td>
-        <td class="right">{{ it.subtotal | rupiah }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th>Barang</th><th class="right">Harga</th><th class="right">Qty</th><th class="right">Subtotal</th></tr>
+      </thead>
+      <tbody>
+        {% for it in items %}
+        <tr>
+          <td>{{ it.nama_barang }}</td>
+          <td class="right dim num">{{ it.harga_satuan | rupiah }}</td>
+          <td class="right num">{{ it.qty }}</td>
+          <td class="right num">{{ it.subtotal | rupiah }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
   <div class="struk-total">
-    <div class="total-row"><span>Total</span><strong>{{ trx.total | rupiah }}</strong></div>
-    <div class="total-row"><span>Bayar</span><span>{{ trx.bayar | rupiah }}</span></div>
-    <div class="total-row kembali-row"><span>Kembali</span><strong>{{ trx.kembali | rupiah }}</strong></div>
+    <div class="sum-row total"><span class="k">Total</span><span class="v">{{ trx.total | rupiah }}</span></div>
+    <div class="sum-row"><span class="k">Bayar</span><span class="v">{{ trx.bayar | rupiah }}</span></div>
+    <div class="sum-row kembali-row">
+      <span class="k">Kembali</span><span class="v">{{ trx.kembali | rupiah }}</span>
+    </div>
   </div>
 
   {% if trx.catatan %}
-  <p class="muted small">Catatan: {{ trx.catatan }}</p>
+  <p class="dim small" style="margin-top:12px;">Catatan: {{ trx.catatan }}</p>
   {% endif %}
 
-  <p class="muted small center">— Terima kasih, selamat berbelanja —</p>
+  <p class="dim small center" style="margin-top:14px;">Terima kasih, selamat berbelanja</p>
 </div>
 
 {% if session.user and request.endpoint == 'transaksi_detail' %}
-<form method="post" action="{{ url_for('transaksi_hapus', tid=trx.id) }}"
-      onsubmit="return confirm('Hapus transaksi ini? Stok akan dikembalikan.')">
-  <button class="btn btn-danger" type="submit">Hapus Transaksi</button>
-</form>
+<div class="no-print" style="max-width:560px;margin:16px auto 0;display:flex;gap:9px;">
+  <a class="btn btn-accent" href="{{ url_for('kasir') }}">{{ icon('cart', 'ico sm') }} Transaksi Baru</a>
+  <form method="post" action="{{ url_for('transaksi_hapus', tid=trx.id) }}" class="inline"
+        data-konfirmasi="Hapus transaksi {{ trx.kode }}? Stok barang akan dikembalikan.">
+    <button class="btn btn-ghost" type="submit" style="color:var(--danger);">
+      {{ icon('trash', 'ico sm') }} Hapus Transaksi
+    </button>
+  </form>
+</div>
 {% endif %}
 {% endblock %}

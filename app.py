@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from functools import wraps
 
 from flask import (
@@ -103,8 +103,75 @@ def rupiah(nilai):
 
 app.jinja_env.filters["rupiah"] = rupiah
 
+# ---------------------------------------------------------------------------
+# Helper tampilan (read-only, tidak mengubah logika aplikasi)
+# ---------------------------------------------------------------------------
+HARI_ID = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+BULAN_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+            "Jul", "Agu", "Sep", "Okt", "Nov", "Des"]
+BULAN_PANJANG = ["Januari", "Februari", "Maret", "April", "Mei", "Juni",
+                 "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+
+
+def _ke_datetime(nilai):
+    if isinstance(nilai, str):
+        try:
+            return datetime.fromisoformat(nilai.replace("Z", ""))
+        except ValueError:
+            return None
+    return nilai
+
+
+def tanggal_id(nilai=None):
+    """'2026-10-20T09:30:00' -> 'Sel, 20 Okt'"""
+    d = _ke_datetime(nilai) or datetime.now()
+    return f"{HARI_ID[d.weekday()][:3]}, {d.day} {BULAN_ID[d.month - 1]}"
+
+
+def tanggal_panjang_id(nilai=None):
+    d = _ke_datetime(nilai) or datetime.now()
+    return f"{HARI_ID[d.weekday()]}, {d.day} {BULAN_PANJANG[d.month - 1]} {d.year}"
+
+
+def jam_id(nilai=None):
+    d = _ke_datetime(nilai) or datetime.now()
+    return d.strftime("%H:%M")
+
+
+def jam_menit_id(nilai=None):
+    d = _ke_datetime(nilai) or datetime.now()
+    return d.strftime("%H:%M")
+
+
+app.jinja_env.filters["tanggal_id"] = tanggal_id
+app.jinja_env.filters["tanggal_panjang_id"] = tanggal_panjang_id
+app.jinja_env.filters["jam_id"] = jam_id
+app.jinja_env.globals["now"] = datetime.now
+app.jinja_env.globals["today"] = date.today
+
 def row_to_dict(row):
     return {k: row[k] for k in row.keys()} if row else None
+
+
+def tren_7_hari(db):
+    """Omzet 7 hari terakhir, hari tanpa transaksi diisi 0 supaya grafik selalu 7 batang."""
+    rows = db.execute(
+        "SELECT date(created_at) tgl, COALESCE(SUM(total), 0) omzet, COUNT(*) jumlah"
+        " FROM transaksi WHERE date(created_at) >= date('now', '-6 days')"
+        " GROUP BY date(created_at)"
+    ).fetchall()
+    ada = {r["tgl"]: r for r in rows}
+    hari_ini = date.today()
+    seri = []
+    for i in range(6, -1, -1):
+        tgl = (hari_ini - timedelta(days=i)).isoformat()
+        r = ada.get(tgl)
+        seri.append({
+            "tgl": tgl,
+            "omzet": r["omzet"] if r else 0,
+            "jumlah": r["jumlah"] if r else 0,
+        })
+    return seri
 
 USERS = {
     os.environ.get("KASIR_USER", "admin"): os.environ.get("KASIR_PASS", "admin123"),
@@ -118,6 +185,30 @@ def login_required(view):
         return view(*args, **kwargs)
 
     return wrapped
+
+
+@app.context_processor
+def inject_shell():
+    """Angka kecil untuk shell UI (badge sidebar). Read-only, tidak menyentuh data."""
+    kosong = {"nav_trx_hari": 0, "nav_stok_kritis": 0, "nav_total_barang": 0}
+    if not session.get("user"):
+        return kosong
+    try:
+        db = get_db()
+        hari = date.today().isoformat()
+        return {
+            "nav_trx_hari": db.execute(
+                "SELECT COUNT(*) c FROM transaksi WHERE date(created_at) = ?", (hari,)
+            ).fetchone()["c"],
+            "nav_stok_kritis": db.execute(
+                "SELECT COUNT(*) c FROM barang WHERE stok <= 5"
+            ).fetchone()["c"],
+            "nav_total_barang": db.execute(
+                "SELECT COUNT(*) c FROM barang"
+            ).fetchone()["c"],
+        }
+    except Exception:
+        return kosong
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -161,6 +252,17 @@ def index():
         "SELECT * FROM transaksi ORDER BY id DESC LIMIT 5"
     ).fetchall()
 
+    # --- tambahan read-only untuk tampilan dashboard (grafik 7 hari + terlaris) ---
+    tren = tren_7_hari(db)
+
+    terlaris_hari = db.execute(
+        "SELECT ti.nama_barang, SUM(ti.qty) qty, SUM(ti.subtotal) omzet"
+        " FROM transaksi_item ti JOIN transaksi t ON t.id = ti.transaksi_id"
+        " WHERE date(t.created_at) = ?"
+        " GROUP BY ti.nama_barang ORDER BY qty DESC LIMIT 5",
+        (hari_ini,),
+    ).fetchall()
+
     return render_template(
         "index.html",
         total_barang=total_barang,
@@ -170,6 +272,8 @@ def index():
         trx_total=trx_hari["t"],
         terbaru=terbaru,
         hari_ini=hari_ini,
+        tren=list(reversed(tren)),
+        terlaris_hari=terlaris_hari,
     )
 
 @app.route("/barang")
@@ -421,6 +525,27 @@ def transaksi_detail(tid):
     ).fetchall()
     return render_template("detail.html", trx=trx, items=items)
 
+@app.route("/api/transaksi/<int:tid>")
+@login_required
+def api_transaksi_detail(tid):
+    """Endpoint BARU (read-only) khusus drawer detail struk di halaman Riwayat."""
+    db = get_db()
+    trx = db.execute("SELECT * FROM transaksi WHERE id = ?", (tid,)).fetchone()
+    if not trx:
+        return jsonify({"ok": False, "error": "Transaksi tidak ditemukan."}), 404
+    items = db.execute(
+        "SELECT * FROM transaksi_item WHERE transaksi_id = ? ORDER BY id", (tid,)
+    ).fetchall()
+    return jsonify(
+        {
+            "ok": True,
+            "trx": row_to_dict(trx),
+            "items": [row_to_dict(i) for i in items],
+            "detail_url": url_for("transaksi_detail", tid=tid),
+        }
+    )
+
+
 @app.route("/transaksi/<int:tid>/hapus", methods=["POST"])
 @login_required
 def transaksi_hapus(tid):
@@ -480,11 +605,7 @@ def laporan(tanggal=None):
         (tanggal,),
     ).fetchall()
 
-    tren = db.execute(
-        "SELECT date(created_at) tgl, COALESCE(SUM(total),0) omzet"
-        " FROM transaksi GROUP BY date(created_at)"
-        " ORDER BY tgl DESC LIMIT 7"
-    ).fetchall()
+    tren = tren_7_hari(db)
 
     return render_template(
         "laporan.html",
@@ -493,7 +614,7 @@ def laporan(tanggal=None):
         laba=laba_row["laba"],
         terlaris=terlaris,
         daftar=daftar,
-        tren=list(reversed(tren)),
+        tren=tren,
     )
 
 @app.route("/api/laporan/<tanggal>")

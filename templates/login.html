@@ -1,25 +1,82 @@
 {% extends "base.html" %}
-{% block title %}Masuk - Kasir Sederhana{% endblock %}
+{% from "_icons.html" import icon %}
+{% block title %}Masuk - Warung Pos{% endblock %}
 
-{% block content %}
-<div class="login-wrap">
-  <div class="card login-card">
-    <h1>🏪 Kasir Sederhana</h1>
-    <p class="muted">Masuk untuk mulai mencatat penjualan.</p>
+{# Halaman login tidak memakai shell sidebar #}
+{% block body %}
+<div class="login-page">
+  <div class="login-card">
+    <span class="logo" aria-hidden="true">{{ icon('zap') }}</span>
+    <h1>Warung Pos</h1>
+    <p class="muted" style="margin-top:6px;">Masuk untuk mulai mencatat penjualan</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flashes" style="margin-top:16px;text-align:left;">
+          {% for cat, msg in messages %}
+            <div class="flash flash-{{ cat if cat in ['success','error','info'] else 'info' }}">
+              {{ icon('check-circle' if cat == 'success' else 'alert-circle', 'ico') }}
+              <span>{{ msg }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
 
     <form method="post" class="form">
-      <label>
-        Username
-        <input type="text" name="username" placeholder="admin" required autofocus>
-      </label>
-      <label>
-        Password
-        <input type="password" name="password" placeholder="••••••••" required>
-      </label>
-      <button class="btn btn-primary btn-block" type="submit">Masuk</button>
+      <div class="field">
+        <label for="username">Username</label>
+        <span class="input-ico">
+          {{ icon('user') }}
+          <input type="text" id="username" name="username" placeholder="admin"
+                 autocomplete="username" required autofocus>
+        </span>
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <span class="input-ico">
+          {{ icon('lock') }}
+          <input type="password" id="password" name="password" placeholder="••••••••"
+                 autocomplete="current-password" required>
+          <button class="toggle-pass" type="button" id="togglePass"
+                  aria-label="Tampilkan atau sembunyikan password">
+            {{ icon('eye', 'ico sm') }}
+          </button>
+        </span>
+      </div>
+
+      <button class="btn btn-accent btn-lg btn-block" type="submit">
+        {{ icon('logout', 'ico sm') }} Masuk
+      </button>
     </form>
 
-    <p class="hint">Demo login: <code>admin</code> / <code>admin123</code></p>
+    <p class="demo">Demo login: <code>admin</code> / <code>admin123</code></p>
+
+    <div class="theme-toggle" style="margin-top:16px;">
+      <button class="theme-btn active" type="button" data-theme-set="light" aria-label="Tema terang">
+        {{ icon('sun') }}<span>Terang</span>
+      </button>
+      <button class="theme-btn" type="button" data-theme-set="dark" aria-label="Tema gelap">
+        {{ icon('moon') }}<span>Gelap</span>
+      </button>
+    </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const btn = document.getElementById('togglePass');
+  const inp = document.getElementById('password');
+  if (!btn || !inp) return;
+  btn.addEventListener('click', function () {
+    const tampil = inp.type === 'password';
+    inp.type = tampil ? 'text' : 'password';
+    btn.setAttribute('aria-label', tampil ? 'Sembunyikan password' : 'Tampilkan password');
+    inp.focus();
+  });
+})();
+</script>
 {% endblock %}

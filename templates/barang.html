@@ -1,88 +1,266 @@
 {% extends "base.html" %}
-{% block title %}Barang - Kasir Sederhana{% endblock %}
+{% from "_icons.html" import icon %}
+{% block title %}Barang - Warung Pos{% endblock %}
 
 {% block content %}
 <div class="page-head">
-  <h1>Daftar Barang</h1>
-  <form class="search" method="get" action="{{ url_for('barang_list') }}">
-    <input type="text" name="q" value="{{ q }}" placeholder="Cari barang...">
-    <button class="btn" type="submit">Cari</button>
-    {% if q %}<a class="btn btn-ghost" href="{{ url_for('barang_list') }}">Reset</a>{% endif %}
-  </form>
+  <div>
+    <h1 class="page-title">Barang</h1>
+    <p class="page-sub">Kelola daftar barang, harga, dan stok</p>
+  </div>
+  <div class="page-aksi" style="margin-left:auto; display:flex; gap:9px;">
+    <a class="btn btn-outline" href="{{ url_for('kasir') }}">{{ icon('cart', 'ico sm') }} Kasir</a>
+    <button class="btn btn-accent" type="button" data-drawer-buka="drawerTambah">
+      {{ icon('plus', 'ico sm') }} Tambah Barang
+    </button>
+  </div>
 </div>
 
-<div class="card">
-  <h2>Tambah Barang</h2>
-  <form method="post" action="{{ url_for('barang_tambah') }}" class="form form-inline">
-    <label>Nama <input type="text" name="nama" required placeholder="cth: Sabun Mandi"></label>
-    <label>Harga Beli <input type="number" name="harga_beli" min="0" value="0" required></label>
-    <label>Harga Jual <input type="number" name="harga_jual" min="0" value="0" required></label>
-    <label>Stok <input type="number" name="stok" min="0" value="0" required></label>
-    <label>Satuan <input type="text" name="satuan" value="pcs" size="6"></label>
-    <button class="btn btn-primary" type="submit">+ Tambah</button>
-  </form>
+{# ---------------- Ringkasan kecil ---------------- #}
+<div class="stats">
+  <div class="stat">
+    <div class="stat-top"><span class="stat-ico is-blue">{{ icon('layers') }}</span></div>
+    <span class="stat-label">Jenis Barang</span>
+    <span class="stat-value">{{ nav_total_barang }}</span>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span class="stat-ico is-amber">{{ icon('alert-triangle') }}</span></div>
+    <span class="stat-label">Stok Menipis (&le;5)</span>
+    <span class="stat-value">{{ nav_stok_kritis }}</span>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span class="stat-ico is-green">{{ icon('check') }}</span></div>
+    <span class="stat-label">Stok Aman</span>
+    <span class="stat-value">{{ nav_total_barang - nav_stok_kritis }}</span>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span class="stat-ico">{{ icon('tag') }}</span></div>
+    <span class="stat-label">Hasil Filter</span>
+    <span class="stat-value">{{ barang_list | length }}</span>
+  </div>
 </div>
 
+{# ---------------- Tabel barang ---------------- #}
 <div class="card">
-  <h2>Data Barang <span class="badge">{{ barang_list | length }}</span></h2>
+  <div class="card-head">
+    <div>
+      <h2>Data Barang</h2>
+      <p class="sub">{% if q %}Hasil pencarian &ldquo;{{ q }}&rdquo;{% else %}Semua barang, urut nama{% endif %}</p>
+    </div>
+    <div class="grow">
+      <form class="search" method="get" action="{{ url_for('barang_list') }}"
+            style="max-width:280px;" role="search">
+        {{ icon('search') }}
+        <input type="search" name="q" value="{{ q }}" placeholder="Cari nama barang..." aria-label="Cari barang">
+      </form>
+      {% if q %}<a class="btn btn-ghost btn-sm" href="{{ url_for('barang_list') }}">Reset</a>{% endif %}
+    </div>
+  </div>
+
   {% if barang_list %}
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Nama</th>
-        <th class="right">Harga Beli</th>
-        <th class="right">Harga Jual</th>
-        <th class="right">Margin</th>
-        <th class="right">Stok</th>
-        <th class="center">Aksi</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for b in barang_list %}
-      <tr>
-        <td><strong>{{ b.nama }}</strong></td>
-        <td class="right muted">{{ b.harga_beli | rupiah }}</td>
-        <td class="right">{{ b.harga_jual | rupiah }}</td>
-        <td class="right muted">{{ (b.harga_jual - b.harga_beli) | rupiah }}</td>
-        <td class="right">
-          <span class="pill {{ 'pill-danger' if b.stok == 0 else ('pill-warn' if b.stok <= 5 else 'pill-ok') }}">
-            {{ b.stok }} {{ b.satuan }}
-          </span>
-        </td>
-        <td class="center nowrap">
-          <button class="btn btn-sm" onclick="toggleEdit({{ b.id }})">Edit</button>
-          <form method="post" action="{{ url_for('barang_hapus', bid=b.id) }}"
-                class="inline" onsubmit="return confirm('Hapus {{ b.nama }}?')">
-            <button class="btn btn-sm btn-danger" type="submit">Hapus</button>
-          </form>
-        </td>
-      </tr>
-      <tr id="edit-{{ b.id }}" class="edit-row hidden">
-        <td colspan="6">
-          <form method="post" action="{{ url_for('barang_edit', bid=b.id) }}" class="form form-inline">
-            <label>Nama <input type="text" name="nama" value="{{ b.nama }}" required></label>
-            <label>Harga Beli <input type="number" name="harga_beli" value="{{ b.harga_beli }}" min="0" required></label>
-            <label>Harga Jual <input type="number" name="harga_jual" value="{{ b.harga_jual }}" min="0" required></label>
-            <label>Stok <input type="number" name="stok" value="{{ b.stok }}" min="0" required></label>
-            <label>Satuan <input type="text" name="satuan" value="{{ b.satuan }}" size="6"></label>
-            <button class="btn btn-primary" type="submit">Simpan</button>
-            <button class="btn btn-ghost" type="button" onclick="toggleEdit({{ b.id }})">Batal</button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Barang</th>
+          <th class="right tabel-hp-hide">Harga Beli</th>
+          <th class="right">Harga Jual</th>
+          <th class="right tabel-hp-hide">Margin</th>
+          <th class="center">Stok</th>
+          <th class="right">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in barang_list %}
+        {% set kelas = 'crit' if b.stok < 5 else ('low' if b.stok < 20 else 'ok') %}
+        <tr>
+          <td>
+            <div class="row-item">
+              <span class="row-thumb">{{ b.nama[0] | upper }}</span>
+              <span>
+                <strong style="font-weight:600;">{{ b.nama }}</strong><br>
+                <span class="dim tiny">per {{ b.satuan }}</span>
+              </span>
+            </div>
+          </td>
+          <td class="right dim num tabel-hp-hide">{{ b.harga_beli | rupiah }}</td>
+          <td class="right num" style="color:var(--accent);font-weight:600;">{{ b.harga_jual | rupiah }}</td>
+          <td class="right num tabel-hp-hide">
+            {% set margin = b.harga_jual - b.harga_beli %}
+            <span class="pill {{ 'pill-ok' if margin > 0 else 'pill-danger' }}">
+              {{ '+' if margin > 0 }}{{ margin | rupiah }}
+            </span>
+          </td>
+          <td class="center">
+            <span class="stok-badge {{ kelas }}" style="position:static;display:inline-block;">
+              {% if b.stok == 0 %}Habis{% else %}{{ b.stok }} {{ b.satuan }}{% endif %}
+            </span>
+          </td>
+          <td class="right">
+            <div class="actions">
+              <button class="btn btn-sm" type="button" data-drawer-buka="drawerEdit-{{ b.id }}"
+                      aria-label="Edit {{ b.nama }}">{{ icon('edit', 'ico sm') }}</button>
+              <form method="post" action="{{ url_for('barang_hapus', bid=b.id) }}"
+                    class="inline" data-konfirmasi="Hapus {{ b.nama }}? Tindakan ini tidak bisa dibatalkan.">
+                <button class="btn btn-sm btn-ghost" type="submit" aria-label="Hapus {{ b.nama }}"
+                        style="color:var(--danger);">{{ icon('trash', 'ico sm') }}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% else %}
-  <p class="muted">{% if q %}Tidak ada barang yang cocok dengan "{{ q }}".{% else %}Belum ada barang.{% endif %}</p>
+  <div class="empty">
+    <span class="ring">{{ icon('package') }}</span>
+    <span class="t">{% if q %}Tidak ada barang cocok{% else %}Belum ada barang{% endif %}</span>
+    <span class="s">
+      {% if q %}Coba kata kunci lain atau reset pencarian.{% else %}Tambahkan barang pertama kamu.{% endif %}
+    </span>
+    {% if q %}
+      <a class="btn" href="{{ url_for('barang_list') }}" style="margin-top:8px;">Reset pencarian</a>
+    {% else %}
+      <button class="btn btn-soft" type="button" data-drawer-buka="drawerTambah" style="margin-top:8px;">
+        {{ icon('plus', 'ico sm') }} Tambah Barang
+      </button>
+    {% endif %}
+  </div>
   {% endif %}
 </div>
+
+{# ================= DRAWER TAMBAH ================= #}
+<div class="drawer-backdrop hidden" data-backdrop="drawerTambah"></div>
+<div class="drawer hidden" id="drawerTambah" role="dialog" aria-label="Tambah barang" aria-hidden="true">
+  <div class="drawer-head">
+    <span class="stat-ico">{{ icon('plus') }}</span>
+    <div>
+      <h2>Tambah Barang</h2>
+      <p class="sub">Isi data barang baru</p>
+    </div>
+    <button class="close-btn btn btn-ghost btn-sm btn-round" type="button" data-tutup
+            style="margin-left:auto;" aria-label="Tutup">{{ icon('x', 'ico sm') }}</button>
+  </div>
+  <form class="drawer-body form" method="post" action="{{ url_for('barang_tambah') }}">
+    <div class="field">
+      <label for="t-nama">Nama Barang</label>
+      <input type="text" id="t-nama" name="nama" required placeholder="cth: Sabun Mandi" autocomplete="off">
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label for="t-beli">Harga Beli</label>
+        <input type="number" id="t-beli" name="harga_beli" min="0" value="0" required>
+      </div>
+      <div class="field">
+        <label for="t-jual">Harga Jual</label>
+        <input type="number" id="t-jual" name="harga_jual" min="0" value="0" required>
+      </div>
+      <div class="field">
+        <label for="t-stok">Stok Awal</label>
+        <input type="number" id="t-stok" name="stok" min="0" value="0" required>
+      </div>
+      <div class="field">
+        <label for="t-satuan">Satuan</label>
+        <input type="text" id="t-satuan" name="satuan" value="pcs" autocomplete="off">
+      </div>
+    </div>
+    <p class="hint">Satuan umum: pcs, botol, kg, liter, bungkus, dus.</p>
+    <div class="form-actions" style="margin-top:8px;">
+      <button class="btn btn-accent" type="submit">{{ icon('save', 'ico sm') }} Simpan Barang</button>
+      <button class="btn btn-ghost" type="button" data-tutup>Batal</button>
+    </div>
+  </form>
+</div>
+
+{# ================= DRAWER EDIT (satu per barang) ================= #}
+{% for b in barang_list %}
+<div class="drawer-backdrop hidden" data-backdrop="drawerEdit-{{ b.id }}"></div>
+<div class="drawer hidden" id="drawerEdit-{{ b.id }}" role="dialog"
+     aria-label="Edit {{ b.nama }}" aria-hidden="true">
+  <div class="drawer-head">
+    <span class="stat-ico">{{ icon('edit') }}</span>
+    <div>
+      <h2>Edit Barang</h2>
+      <p class="sub">{{ b.nama }}</p>
+    </div>
+    <button class="close-btn btn btn-ghost btn-sm btn-round" type="button" data-tutup
+            style="margin-left:auto;" aria-label="Tutup">{{ icon('x', 'ico sm') }}</button>
+  </div>
+  <form class="drawer-body form" method="post" action="{{ url_for('barang_edit', bid=b.id) }}">
+    <div class="field">
+      <label for="e{{ b.id }}-nama">Nama Barang</label>
+      <input type="text" id="e{{ b.id }}-nama" name="nama" value="{{ b.nama }}" required>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label for="e{{ b.id }}-beli">Harga Beli</label>
+        <input type="number" id="e{{ b.id }}-beli" name="harga_beli" value="{{ b.harga_beli }}" min="0" required>
+      </div>
+      <div class="field">
+        <label for="e{{ b.id }}-jual">Harga Jual</label>
+        <input type="number" id="e{{ b.id }}-jual" name="harga_jual" value="{{ b.harga_jual }}" min="0" required>
+      </div>
+      <div class="field">
+        <label for="e{{ b.id }}-stok">Stok</label>
+        <input type="number" id="e{{ b.id }}-stok" name="stok" value="{{ b.stok }}" min="0" required>
+      </div>
+      <div class="field">
+        <label for="e{{ b.id }}-satuan">Satuan</label>
+        <input type="text" id="e{{ b.id }}-satuan" name="satuan" value="{{ b.satuan }}">
+      </div>
+    </div>
+    <div class="hint">
+      Margin saat ini:
+      <strong>{{ (b.harga_jual - b.harga_beli) | rupiah }}</strong>
+      ({{ ((b.harga_jual - b.harga_beli) / b.harga_beli * 100) | round(1) if b.harga_beli else 0 }}%)
+    </div>
+    <div class="form-actions" style="margin-top:8px;">
+      <button class="btn btn-accent" type="submit">{{ icon('save', 'ico sm') }} Simpan Perubahan</button>
+      <button class="btn btn-ghost" type="button" data-tutup>Batal</button>
+    </div>
+  </form>
+</div>
+{% endfor %}
 {% endblock %}
 
 {% block scripts %}
 <script>
-function toggleEdit(id) {
-  document.getElementById('edit-' + id).classList.toggle('hidden');
-}
+(function () {
+  function ikatDrawer() {
+    document.querySelectorAll('[data-drawer-buka]').forEach(function (b) {
+      if (b.dataset.ikat === '1') return;
+      b.dataset.ikat = '1';
+      b.addEventListener('click', function () {
+        const d = document.getElementById(b.dataset.drawerBuka);
+        const bd = document.querySelector('[data-backdrop="' + b.dataset.drawerBuka + '"]');
+        if (d) WP.buka(d);
+        if (bd) {
+          bd.classList.remove('hidden');
+          bd.onclick = function () { WP.tutup(d); bd.classList.add('hidden'); };
+        }
+      });
+    });
+    document.querySelectorAll('.drawer').forEach(function (d) {
+      if (d.dataset.ikatTutup === '1') return;
+      d.dataset.ikatTutup = '1';
+      d.querySelectorAll('[data-tutup]').forEach(function (x) {
+        x.addEventListener('click', function () {
+          WP.tutup(d);
+          const bd = document.querySelector('[data-backdrop="' + d.id + '"]');
+          if (bd) bd.classList.add('hidden');
+        });
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+          WP.tutup(d);
+          const bd = document.querySelector('[data-backdrop="' + d.id + '"]');
+          if (bd) bd.classList.add('hidden');
+        }
+      });
+    });
+  }
+  ikatDrawer();
+})();
 </script>
 {% endblock %}

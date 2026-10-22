@@ -52,4 +52,81 @@ Request `/barang` without the cookie. Returns 302 to `/login`.
 - no barcode scanning, manual entry only
 - no receipt printing
 - daily report only, no monthly
-- basic styling
+
+## Tampilan (redesign UI)
+
+Seluruh tampilan dirombak mengikuti gaya soft-UI: banyak ruang putih, sudut membulat,
+satu warna aksen merah koral. HTML/CSS/JS saja, logika backend tidak diubah.
+
+- Palet dari CSS variables di `:root` (`static/css/style.css`): `--accent: #EF4444`,
+  `--bg-app: #F5F6FA`, `--bg-card: #FFFFFF`, `--accent-soft: #FEECEC`, dst.
+- Font Inter, ikon SVG inline Lucide (stroke 1.75) dari `templates/_icons.html`. Tidak ada emoji.
+- Tema Terang/Gelap, default Terang, pilihan disimpan di `localStorage`.
+- Shell `templates/base.html`: sidebar + topbar + toast, dipakai semua halaman.
+
+```
+templates/
+  base.html        shell: sidebar + topbar + toast + blok tema
+  _icons.html      makro ikon SVG inline (Lucide, stroke 1.75). Bukan emoji.
+  index.html       dashboard (statistik + grafik 7 hari + stok menipis)
+  kasir.html       kasir (grid barang + panel keranjang)
+  barang.html      daftar barang (tabel + drawer tambah/edit)
+  riwayat.html     riwayat + drawer detail struk
+  laporan.html     laporan (ringkasan + terlaris + tren + ekspor CSV)
+  detail.html      struk siap cetak
+  login.html       login (tanpa sidebar)
+  404.html         halaman tidak ditemukan
+static/
+  css/style.css    seluruh tampilan (CSS variables, light + dark)
+  js/app.js        helper UI: toast, modal, drawer, tema, format Rupiah
+tools/             skrip uji (lihat bagian Skrip uji di bawah)
+```
+
+API tambahan (read-only, dipakai drawer riwayat):
+
+```
+/api/transaksi/<id>         detail satu transaksi + itemnya (JSON)
+```
+
+### Lebar layar
+
+Sudah diuji tanpa scroll samping di 1920, 1536, 1366, 1280, 1024, 768, 390, dan 360 px.
+
+- `> 1366px` tata letak penuh: sidebar 240px, konten + panel keranjang 360px.
+- `<= 1366px` versi rapat: padding dan kartu produk mengecil, tetap 3 kolom.
+- `<= 1279px` sidebar jadi rel ikon (72px), panel keranjang jadi drawer kanan
+  yang dibuka lewat tombol mengambang "Keranjang (n)".
+- `<= 767px` sidebar jadi bottom navigation (5 menu utama), grid barang 2 kolom,
+  keranjang jadi bottom sheet, tabel menyembunyikan kolom sekunder.
+- `<= 360px` grid barang 1 kolom.
+- Tinggi layar `<= 700px` (laptop pendek) daftar barang dan keranjang ikut dipadatkan.
+
+Target sentuh minimal 44px di perangkat tanpa hover.
+
+### Kustomisasi
+
+Warna aksen seluruh aplikasi diganti dari satu tempat: variabel `--accent`.
+
+```css
+:root {
+  --accent: #EF4444;        /* ganti jadi #2563EB untuk biru, dsb. */
+  --accent-soft: #FEECEC;   /* versi muda untuk latar tombol/ikon sekunder */
+  --accent-hover: #DC2626;  /* versi gelap untuk state hover */
+}
+```
+
+Warna mode gelap ada di blok `[data-theme="dark"]` pada file yang sama.
+
+### Skrip uji
+
+```bash
+python tools/smoke_test.py        # semua route, POST kasir (JSON + form), CRUD barang
+python tools/verify_tema.py       # token warna, tema default, bersih dari emoji/Jinja bocor, grafik 7 batang
+python tools/verify_responsif.py  # ukur DOM nyata: nav HP, tombol keranjang, rail ikon, target 44px
+python tools/snapshot_hp.py       # render HP 390/360 px + tablet 768 px, cek scroll samping
+```
+
+`verify_responsif.py` dan `snapshot_hp.py` memakai Chrome/Edge headless dan mengukur
+`getBoundingClientRect()`/`getComputedStyle()` pada viewport eksak, jadi hasilnya angka
+nyata. Semua skrip membuat `warung_pos.db` sendiri kalau belum ada, dan mengembalikan
+database ke kondisi semula setelah selesai.

@@ -1,46 +1,174 @@
+{% from "_icons.html" import icon %}
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Kasir Sederhana{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}Warung Pos{% endblock %}</title>
+
+  {# Terapkan tema sebelum render supaya tidak berkedip.
+     Default TERANG; hanya pilihan yang pernah disimpan user yang dihormati. #}
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('wp-theme');
+        if (t !== 'dark' && t !== 'light') { t = 'light'; }
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">🏪 Kasir Sederhana</div>
-    <nav class="nav">
-      <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint == 'index' }}">Dashboard</a>
-      <a href="{{ url_for('kasir') }}" class="{{ 'active' if request.endpoint == 'kasir' }}">Kasir</a>
-      <a href="{{ url_for('barang_list') }}" class="{{ 'active' if request.endpoint == 'barang_list' }}">Barang</a>
-      <a href="{{ url_for('riwayat') }}" class="{{ 'active' if request.endpoint == 'riwayat' }}">Riwayat</a>
-      <a href="{{ url_for('laporan') }}" class="{{ 'active' if request.endpoint == 'laporan' }}">Laporan</a>
-    </nav>
-    <div class="user">
-      {% if session.user %}
-        <span class="who">{{ session.user }}</span>
-        <a class="btn btn-ghost btn-sm" href="{{ url_for('logout') }}">Keluar</a>
-      {% endif %}
+{% block body %}
+<div class="shell">
+
+  {# ======================= SIDEBAR ======================= #}
+  <aside class="sidebar" aria-label="Navigasi utama">
+    <div class="side-head">
+      <span class="logo" aria-hidden="true">{{ icon('zap') }}</span>
+      <span class="brand">
+        <span class="brand-name">Warung Pos</span>
+        <span class="brand-date">{{ now() | tanggal_id }}</span>
+      </span>
     </div>
-  </header>
 
-  <main class="container">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="flashes">
-          {% for cat, msg in messages %}
-            <div class="flash flash-{{ cat }}">{{ msg }}</div>
-          {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
+    <div class="side-sep"></div>
+    <p class="side-label">Menu Utama</p>
 
-    {% block content %}{% endblock %}
-  </main>
+    <nav class="side-nav">
+      <a class="side-link {{ 'active' if request.endpoint == 'index' }}"
+         href="{{ url_for('index') }}" {{ 'aria-current=page' if request.endpoint == 'index' }}"
+         aria-label="Dashboard" title="Dashboard">
+        {{ icon('dashboard') }}<span class="txt">Dashboard</span>
+      </a>
+      <a class="side-link {{ 'active' if request.endpoint == 'kasir' }}"
+         href="{{ url_for('kasir') }}" {{ 'aria-current=page' if request.endpoint == 'kasir' }}"
+         aria-label="Kasir" title="Kasir">
+        {{ icon('cart') }}<span class="txt">Kasir</span>
+      </a>
+      <a class="side-link {{ 'active' if request.endpoint == 'barang_list' }}"
+         href="{{ url_for('barang_list') }}" {{ 'aria-current=page' if request.endpoint == 'barang_list' }}"
+         aria-label="Barang" title="Barang">
+        {{ icon('package') }}<span class="txt">Barang</span>
+        {% if nav_stok_kritis %}
+          <span class="side-badge is-danger" title="{{ nav_stok_kritis }} barang stok menipis">{{ nav_stok_kritis }}</span>
+        {% endif %}
+      </a>
+      <a class="side-link {{ 'active' if request.endpoint == 'riwayat' }}"
+         href="{{ url_for('riwayat') }}" {{ 'aria-current=page' if request.endpoint == 'riwayat' }}"
+         aria-label="Riwayat" title="Riwayat">
+        {{ icon('history') }}<span class="txt">Riwayat</span>
+        {% if nav_trx_hari %}
+          <span class="side-badge" title="{{ nav_trx_hari }} transaksi hari ini">{{ nav_trx_hari }}</span>
+        {% endif %}
+      </a>
+      <a class="side-link {{ 'active' if request.endpoint == 'laporan' }}"
+         href="{{ url_for('laporan') }}" {{ 'aria-current=page' if request.endpoint == 'laporan' }}"
+         aria-label="Laporan" title="Laporan">
+        {{ icon('chart') }}<span class="txt">Laporan</span>
+      </a>
+    </nav>
 
-  <footer class="footer">
-    Kasir Sederhana &middot; Flask + SQLite &middot; dibuat untuk latihan portofolio
-  </footer>
-  {% block scripts %}{% endblock %}
+    <div class="side-sep"></div>
+    <p class="side-label">Umum</p>
+    <nav class="side-nav side-nav-umum">
+      <a class="side-link" href="{{ url_for('barang_list') }}" title="Pengaturan">
+        {{ icon('settings') }}<span class="txt">Pengaturan</span>
+      </a>
+      <a class="side-link" href="javascript:void(0)" data-help title="Bantuan">
+        {{ icon('help') }}<span class="txt">Bantuan</span>
+      </a>
+    </nav>
+
+    <div class="side-foot">
+      <button class="side-collapse" type="button" data-theme-cycle
+              aria-label="Ganti tema terang atau gelap">
+        {{ icon('sun', 'ico sm') }}<span class="txt">Tema</span>
+      </button>
+
+      <div class="theme-toggle" role="group" aria-label="Pilih tema tampilan">
+        <button class="theme-btn active" type="button" data-theme-set="light" aria-label="Tema terang">
+          {{ icon('sun') }}<span>Terang</span>
+        </button>
+        <button class="theme-btn" type="button" data-theme-set="dark" aria-label="Tema gelap">
+          {{ icon('moon') }}<span>Gelap</span>
+        </button>
+      </div>
+
+      <div class="profile">
+        <span class="avatar" aria-hidden="true">{{ (session.user or 'A')[0] }}</span>
+        <span class="profile-meta">
+          <span class="profile-name">{{ session.user or 'admin' }}</span>
+          <span class="profile-role">Admin Warung</span>
+        </span>
+        <a class="btn btn-ghost btn-sm btn-round" href="{{ url_for('logout') }}"
+           aria-label="Keluar dari aplikasi" title="Keluar">{{ icon('logout', 'ico sm') }}</a>
+      </div>
+    </div>
+  </aside>
+
+  {# ======================= MAIN ======================= #}
+  <div class="main">
+
+    <header class="topbar">
+      <form class="search" method="get" action="{{ url_for('barang_list') }}" role="search">
+        {{ icon('search') }}
+        <input type="search" id="globalSearch" name="q" autocomplete="off"
+               placeholder="Cari barang..." aria-label="Cari barang">
+        <span class="kbd">Ctrl K</span>
+      </form>
+
+      <div class="top-actions">
+        <button class="icon-btn" type="button" id="btnNotif"
+                aria-label="Notifikasi, {{ nav_stok_kritis }} barang stok menipis">
+          {{ icon('bell') }}{% if nav_stok_kritis %}<span class="dot"></span>{% endif %}
+        </button>
+
+        <button class="btn btn-outline" type="button" id="btnBagikan"
+                aria-label="Bagikan atau ekspor data">
+          {{ icon('share', 'ico sm') }}<span class="lbl">Ekspor</span>
+        </button>
+
+        <button class="btn btn-soft" type="button" id="btnCatatan"
+                aria-label="Buka catatan transaksi">
+          {{ icon('note', 'ico sm') }}<span class="lbl">Catatan</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="page">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flashes" role="status">
+            {% for cat, msg in messages %}
+              <div class="flash flash-{{ cat if cat in ['success','error','info'] else 'info' }}">
+                {{ icon('check-circle' if cat == 'success' else ('alert-circle' if cat == 'error' else 'info'), 'ico') }}
+                <span>{{ msg }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+
+      <p class="footer">Warung Pos &middot; Flask + SQLite</p>
+    </main>
+  </div>
+</div>
+{% endblock %}
+
+<div class="toast-wrap" id="toastWrap" aria-live="polite" aria-atomic="false"></div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

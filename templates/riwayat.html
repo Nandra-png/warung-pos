@@ -1,59 +1,233 @@
 {% extends "base.html" %}
-{% block title %}Riwayat - Kasir Sederhana{% endblock %}
+{% from "_icons.html" import icon %}
+{% block title %}Riwayat - Warung Pos{% endblock %}
 
 {% block content %}
 <div class="page-head">
-  <h1>Riwayat Transaksi</h1>
-  <form class="search" method="get" action="{{ url_for('riwayat') }}">
-    <input type="date" name="tanggal" value="{{ tanggal }}">
-    <button class="btn" type="submit">Filter</button>
-    {% if tanggal %}<a class="btn btn-ghost" href="{{ url_for('riwayat') }}">Semua</a>{% endif %}
-  </form>
+  <div>
+    <h1 class="page-title">Riwayat</h1>
+    <p class="page-sub">Catatan transaksi yang sudah tersimpan</p>
+  </div>
+  <div class="page-aksi" style="margin-left:auto; display:flex; gap:9px; align-items:center; flex-wrap:wrap;">
+    <form class="search" method="get" action="{{ url_for('riwayat') }}" style="max-width:250px;"
+          role="search">
+      {{ icon('calendar') }}
+      <input type="date" name="tanggal" value="{{ tanggal }}" aria-label="Filter tanggal">
+    </form>
+    <button class="btn" type="button" onclick="document.querySelector('.search input[name=tanggal]').form.submit()">
+      {{ icon('filter', 'ico sm') }} Filter
+    </button>
+    {% if tanggal %}
+      <a class="btn btn-ghost btn-sm" href="{{ url_for('riwayat') }}">{{ icon('x', 'ico sm') }} Semua</a>
+    {% endif %}
+    <a class="btn btn-accent" href="{{ url_for('kasir') }}">{{ icon('cart', 'ico sm') }} Kasir</a>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat">
+    <div class="stat-top"><span class="stat-ico is-blue">{{ icon('receipt') }}</span></div>
+    <span class="stat-label">Jumlah Transaksi</span>
+    <span class="stat-value">{{ transaksi | length }}</span>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span class="stat-ico">{{ icon('coins') }}</span></div>
+    <span class="stat-label">Total Omzet</span>
+    <span class="stat-value">{{ total | rupiah }}</span>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span class="stat-ico is-green">{{ icon('chart-line') }}</span></div>
+    <span class="stat-label">Rata-rata per Transaksi</span>
+    <span class="stat-value">{{ (total / (transaksi | length)) | round | int | rupiah if transaksi | length else 'Rp 0' }}</span>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span class="stat-ico is-amber">{{ icon('calendar') }}</span></div>
+    <span class="stat-label">Periode</span>
+    <span class="stat-value" style="font-size:17px;">
+      {{ (tanggal | tanggal_panjang_id) if tanggal else 'Semua data' }}
+    </span>
+  </div>
 </div>
 
 <div class="card">
-  <h2>
-    {% if tanggal %}Transaksi {{ tanggal }}{% else %}100 Transaksi Terakhir{% endif %}
-    <span class="badge">{{ transaksi | length }} trx</span>
-  </h2>
+  <div class="card-head">
+    <div>
+      <h2>{% if tanggal %}Transaksi {{ tanggal | tanggal_panjang_id }}{% else %}Transaksi Terakhir{% endif %}</h2>
+      <p class="sub">Klik baris untuk melihat detail struk</p>
+    </div>
+    <div class="grow">
+      <span class="badge">{{ transaksi | length }} trx</span>
+    </div>
+  </div>
+
   {% if transaksi %}
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Kode</th><th>Waktu</th><th>Catatan</th>
-        <th class="right">Total</th><th class="right">Bayar</th>
-        <th class="right">Kembali</th><th class="center">Aksi</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for t in transaksi %}
-      <tr>
-        <td><a href="{{ url_for('transaksi_detail', tid=t.id) }}">{{ t.kode }}</a></td>
-        <td class="muted">{{ t.created_at.replace('T', ' ')[:16] }}</td>
-        <td class="muted">{{ t.catatan or '-' }}</td>
-        <td class="right"><strong>{{ t.total | rupiah }}</strong></td>
-        <td class="right muted">{{ t.bayar | rupiah }}</td>
-        <td class="right muted">{{ t.kembali | rupiah }}</td>
-        <td class="center nowrap">
-          <a class="btn btn-sm" href="{{ url_for('transaksi_detail', tid=t.id) }}">Detail</a>
-          <form method="post" action="{{ url_for('transaksi_hapus', tid=t.id) }}"
-                class="inline" onsubmit="return confirm('Hapus {{ t.kode }}? Stok akan dikembalikan.')">
-            <button class="btn btn-sm btn-danger" type="submit">Hapus</button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-    <tfoot>
-      <tr>
-        <td colspan="3" class="right"><strong>Total</strong></td>
-        <td class="right"><strong>{{ total | rupiah }}</strong></td>
-        <td colspan="3"></td>
-      </tr>
-    </tfoot>
-  </table>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th class="tabel-hp-hide">No</th>
+          <th>Kode</th>
+          <th>Tanggal</th>
+          <th class="tabel-hp-hide">Catatan</th>
+          <th class="right">Total</th>
+          <th class="right tabel-hp-hide">Bayar</th>
+          <th class="right tabel-hp-hide">Kembali</th>
+          <th class="right">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in transaksi %}
+        <tr class="clickable" data-trx="{{ t.id }}" title="Lihat detail {{ t.kode }}">
+          <td class="dim mono tabel-hp-hide">{{ loop.index }}</td>
+          <td><span class="pill pill-info mono">{{ t.kode }}</span></td>
+          <td class="dim mono nowrap">
+            {{ t.created_at[8:10] }}/{{ t.created_at[5:7] }}/{{ t.created_at[0:4] }}
+            <span class="dim tiny tabel-hp-hide">{{ t.created_at[11:16] }}</span>
+          </td>
+          <td class="muted tabel-hp-hide">{{ t.catatan or '-' }}</td>
+          <td class="right num"><strong>{{ t.total | rupiah }}</strong></td>
+          <td class="right dim num tabel-hp-hide">{{ t.bayar | rupiah }}</td>
+          <td class="right num tabel-hp-hide" style="color:var(--success);">{{ t.kembali | rupiah }}</td>
+          <td class="right">
+            <div class="actions">
+              <button class="btn btn-sm" type="button" data-trx="{{ t.id }}"
+                      aria-label="Detail {{ t.kode }}">{{ icon('eye', 'ico sm') }}</button>
+              <a class="btn btn-sm btn-ghost" href="{{ url_for('transaksi_detail', tid=t.id) }}"
+                 aria-label="Buka struk {{ t.kode }}">{{ icon('receipt', 'ico sm') }}</a>
+              <form method="post" action="{{ url_for('transaksi_hapus', tid=t.id) }}" class="inline"
+                    data-konfirmasi="Hapus {{ t.kode }}? Stok barang akan dikembalikan.">
+                <button class="btn btn-sm btn-ghost" type="submit" style="color:var(--danger);"
+                        aria-label="Hapus {{ t.kode }}">{{ icon('trash', 'ico sm') }}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="4" class="right">Total periode ini</td>
+          <td class="right num" style="color:var(--accent);">{{ total | rupiah }}</td>
+          <td colspan="3"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
   {% else %}
-  <p class="muted">Belum ada transaksi{% if tanggal %} pada tanggal ini{% endif %}.</p>
+  <div class="empty">
+    <span class="ring">{{ icon('history') }}</span>
+    <span class="t">Belum ada transaksi{% if tanggal %} pada tanggal ini{% endif %}</span>
+    <span class="s">Transaksi yang kamu simpan di halaman Kasir akan muncul di sini.</span>
+    <a class="btn btn-soft" href="{{ url_for('kasir') }}" style="margin-top:8px;">{{ icon('cart', 'ico sm') }} Buka Kasir</a>
+  </div>
   {% endif %}
 </div>
+
+{# ================= DRAWER DETAIL STRUK ================= #}
+<div class="drawer-backdrop hidden" id="trxBackdrop"></div>
+<div class="drawer hidden" id="trxDrawer" role="dialog" aria-label="Detail transaksi" aria-hidden="true">
+  <div class="drawer-head">
+    <span class="stat-ico">{{ icon('receipt') }}</span>
+    <div>
+      <h2 id="trxKode">Detail Transaksi</h2>
+      <p class="sub" id="trxWaktu">-</p>
+    </div>
+    <button class="btn btn-ghost btn-sm btn-round" type="button" data-tutup
+            style="margin-left:auto;" aria-label="Tutup">{{ icon('x', 'ico sm') }}</button>
+  </div>
+  <div class="drawer-body" id="trxBody">
+    <div class="skeleton sk-line" style="width:60%;"></div>
+    <div class="skeleton sk-line" style="width:100%;margin-top:10px;"></div>
+    <div class="skeleton sk-line" style="width:80%;margin-top:10px;"></div>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn" type="button" data-tutup>Tutup</button>
+    <a class="btn btn-accent" id="trxStruk" href="#">{{ icon('printer', 'ico sm') }} Buka Struk</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const R = WP.rupiah;
+  const drawer = document.getElementById('trxDrawer');
+  const backdrop = document.getElementById('trxBackdrop');
+  const body = document.getElementById('trxBody');
+
+  function tutupDrawer() {
+    WP.tutup(drawer);
+    backdrop.classList.add('hidden');
+  }
+
+  function bukaDrawer() {
+    WP.buka(drawer);
+    backdrop.classList.remove('hidden');
+  }
+
+  drawer.querySelectorAll('[data-tutup]').forEach(function (b) {
+    b.addEventListener('click', tutupDrawer);
+  });
+  backdrop.addEventListener('click', tutupDrawer);
+
+  function rupiahOrDash(v) { return v ? R(v) : '-'; }
+
+  async function muat(id) {
+    document.getElementById('trxKode').textContent = 'Detail Transaksi';
+    document.getElementById('trxWaktu').textContent = 'Memuat...';
+    body.innerHTML =
+      '<div class="skeleton sk-line" style="width:60%;"></div>' +
+      '<div class="skeleton sk-line" style="width:100%;margin-top:10px;"></div>' +
+      '<div class="skeleton sk-line" style="width:80%;margin-top:10px;"></div>';
+    bukaDrawer();
+
+    try {
+      const res = await fetch('{{ url_for("api_transaksi_detail", tid=0) }}'.replace('/0', '/' + id));
+      const d = await res.json();
+      if (!d.ok) { throw new Error(d.error || 'Gagal memuat'); }
+
+      const t = d.trx;
+      document.getElementById('trxKode').textContent = t.kode;
+      document.getElementById('trxWaktu').textContent =
+        t.created_at.replace('T', ' ').slice(0, 16).replace(/-/g, '/');
+      document.getElementById('trxStruk').href = d.detail_url;
+
+      body.innerHTML =
+        '<div class="table-wrap"><table class="table"><thead><tr>' +
+          '<th>Barang</th><th class="right">Harga</th><th class="right">Qty</th><th class="right">Subtotal</th>' +
+        '</tr></thead><tbody>' +
+          d.items.map(function (i) {
+            return '<tr><td><strong>' + i.nama_barang + '</strong></td>' +
+              '<td class="right dim num">' + R(i.harga_satuan) + '</td>' +
+              '<td class="right num">' + i.qty + '</td>' +
+              '<td class="right num">' + R(i.subtotal) + '</td></tr>';
+          }).join('') +
+        '</tbody></table></div>' +
+        '<div class="struk-total">' +
+          '<div class="sum-row"><span class="k">Total</span><span class="v">' + R(t.total) + '</span></div>' +
+          '<div class="sum-row"><span class="k">Bayar</span><span class="v">' + R(t.bayar) + '</span></div>' +
+          '<div class="sum-row"><span class="k">Kembali</span><span class="v">' + R(t.kembali) + '</span></div>' +
+        '</div>' +
+        (t.catatan
+          ? '<div class="alert alert-success" style="margin-top:14px;">Catatan: ' + t.catatan + '</div>'
+          : '');
+    } catch (e) {
+      body.innerHTML = '<div class="alert alert-error">Gagal memuat detail: ' + e.message + '</div>';
+    }
+  }
+
+  document.querySelectorAll('[data-trx]').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('button, a, form')) return;
+      muat(el.dataset.trx);
+    });
+  });
+  document.querySelectorAll('.actions [data-trx]').forEach(function (b) {
+    b.addEventListener('click', function (e) {
+      e.stopPropagation();
+      muat(b.dataset.trx);
+    });
+  });
+})();
+</script>
 {% endblock %}

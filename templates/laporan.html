@@ -1,96 +1,225 @@
 {% extends "base.html" %}
-{% block title %}Laporan - Kasir Sederhana{% endblock %}
+{% from "_icons.html" import icon %}
+{% block title %}Laporan - Warung Pos{% endblock %}
 
 {% block content %}
 <div class="page-head">
-  <h1>Laporan Harian</h1>
-  <form class="search" method="get" action="{{ url_for('laporan') }}">
-    <input type="date" name="tanggal" value="{{ tanggal }}">
-    <button class="btn" type="submit">Lihat</button>
-    <a class="btn btn-ghost" href="{{ url_for('laporan') }}">Hari Ini</a>
-  </form>
+  <div>
+    <h1 class="page-title">Laporan</h1>
+    <p class="page-sub">{{ tanggal | tanggal_panjang_id }}</p>
+  </div>
+  <div class="page-aksi" style="margin-left:auto; display:flex; gap:9px; align-items:center; flex-wrap:wrap;">
+    <form class="search" method="get" action="{{ url_for('laporan') }}" style="max-width:230px;">
+      {{ icon('calendar') }}
+      <input type="date" name="tanggal" value="{{ tanggal }}" aria-label="Pilih tanggal laporan">
+    </form>
+    <button class="btn" type="button" onclick="document.querySelector('.search input[name=tanggal]').form.submit()">
+      {{ icon('filter', 'ico sm') }} Lihat
+    </button>
+    <a class="btn btn-outline" href="{{ url_for('laporan') }}">{{ icon('clock', 'ico sm') }} Hari Ini</a>
+    <button class="btn btn-soft" type="button" id="btnEkspor">{{ icon('download', 'ico sm') }} Ekspor CSV</button>
+  </div>
 </div>
 
+{# ---------------- Ringkasan ---------------- #}
 <div class="stats">
   <div class="stat">
+    <div class="stat-top">
+      <span class="stat-ico is-blue">{{ icon('receipt') }}</span>
+      <span class="trend flat">{{ tanggal }}</span>
+    </div>
     <span class="stat-label">Jumlah Transaksi</span>
     <span class="stat-value">{{ ringkas.jumlah }}</span>
   </div>
-  <div class="stat stat-accent">
+  <div class="stat">
+    <div class="stat-top"><span class="stat-ico">{{ icon('coins') }}</span></div>
     <span class="stat-label">Omzet</span>
     <span class="stat-value">{{ ringkas.omzet | rupiah }}</span>
   </div>
   <div class="stat">
+    <div class="stat-top"><span class="stat-ico is-green">{{ icon('trend-up') }}</span></div>
     <span class="stat-label">Laba Kotor</span>
-    <span class="stat-value">{{ laba | rupiah }}</span>
+    <span class="stat-value" style="color:var(--success);">{{ laba | rupiah }}</span>
   </div>
   <div class="stat">
+    <div class="stat-top"><span class="stat-ico is-amber">{{ icon('wallet') }}</span></div>
     <span class="stat-label">Kembalian Keluar</span>
     <span class="stat-value">{{ ringkas.kembali | rupiah }}</span>
   </div>
 </div>
 
 <div class="grid-2">
+  {# ---------------- Barang terlaris ---------------- #}
   <div class="card">
-    <h2>Barang Terlaris</h2>
+    <div class="card-head">
+      <div>
+        <h2>Barang Terlaris</h2>
+        <p class="sub">10 teratas pada tanggal ini</p>
+      </div>
+    </div>
     {% if terlaris %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Barang</th><th class="right">Terjual</th><th class="right">Omzet</th></tr></thead>
+        <tbody>
+          {% for b in terlaris %}
+          <tr>
+            <td>
+              <div class="row-item">
+                <span class="row-thumb">{{ b.nama_barang[0] | upper }}</span>
+                <span>{{ b.nama_barang }}</span>
+              </div>
+            </td>
+            <td class="right"><span class="pill pill-ok">{{ b.qty }}</span></td>
+            <td class="right num">{{ b.omzet | rupiah }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">
+      <span class="ring">{{ icon('package') }}</span>
+      <span class="t">Belum ada penjualan</span>
+      <span class="s">Tidak ada barang terjual pada tanggal ini.</span>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ---------------- Tren 7 hari ---------------- #}
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <h2>Tren Omzet</h2>
+        <p class="sub">7 hari terakhir</p>
+      </div>
+      <div class="grow">
+        <span class="pill pill-muted">{{ (tren | map(attribute='omzet') | sum) | rupiah }}</span>
+      </div>
+    </div>
+    {% if tren %}
+      {% set maxval = tren | map(attribute='omzet') | max %}
+      <div class="chart-bars" style="height:200px;">
+        {% for t in tren %}
+        <div class="bar-wrap" title="{{ t.tgl }}: {{ t.omzet | rupiah }}">
+          <div class="bar{{ ' bar-kosong' if not t.omzet }}" style="height: {{ (t.omzet / maxval * 100) if maxval else 3 }}%"></div>
+          <span class="bar-label">{{ t.tgl[8:] }}/{{ t.tgl[5:7] }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% if not maxval %}
+      <p class="dim small center" style="margin-top:10px;">Belum ada penjualan dalam 7 hari terakhir.</p>
+      {% endif %}
+    {% else %}
+      <div class="empty">
+        <span class="ring">{{ icon('chart-line') }}</span>
+        <span class="t">Belum ada data</span>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ---------------- Daftar transaksi ---------------- #}
+<div class="card">
+  <div class="card-head">
+    <div>
+      <h2>Daftar Transaksi</h2>
+      <p class="sub">{{ tanggal | tanggal_panjang_id }}</p>
+    </div>
+    <div class="grow">
+      <span class="badge">{{ daftar | length }} trx</span>
+      <button class="btn btn-ghost btn-sm" type="button" onclick="window.print()">
+        {{ icon('printer', 'ico sm') }} Cetak
+      </button>
+    </div>
+  </div>
+  {% if daftar %}
+  <div class="table-wrap">
     <table class="table">
-      <thead>
-        <tr><th>Barang</th><th class="right">Terjual</th><th class="right">Omzet</th></tr>
-      </thead>
+      <thead><tr><th>Kode</th><th>Jam</th><th class="right">Total</th><th class="right">Laba</th></tr></thead>
       <tbody>
-        {% for b in terlaris %}
-        <tr>
-          <td>{{ b.nama_barang }}</td>
-          <td class="right"><span class="pill pill-ok">{{ b.qty }}</span></td>
-          <td class="right">{{ b.omzet | rupiah }}</td>
+        {% for t in daftar %}
+        <tr class="clickable" onclick="location.href='{{ url_for('transaksi_detail', tid=t.id) }}'">
+          <td><span class="pill pill-info mono">{{ t.kode }}</span></td>
+          <td class="dim mono">{{ t.created_at[11:16] }}</td>
+          <td class="right num">{{ t.total | rupiah }}</td>
+          <td class="right num" style="color:var(--success);">{{ (t.total - t.kembali) | rupiah }}</td>
         </tr>
         {% endfor %}
       </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="2" class="right">Total</td>
+          <td class="right num" style="color:var(--accent);">{{ ringkas.omzet | rupiah }}</td>
+          <td class="right num">{{ ringkas.kembali | rupiah }}</td>
+        </tr>
+      </tfoot>
     </table>
-    {% else %}
-    <p class="muted">Belum ada penjualan pada tanggal ini.</p>
-    {% endif %}
   </div>
-
-  <div class="card">
-    <h2>Tren Omzet (7 hari terakhir)</h2>
-    {% if tren %}
-    <div class="chart">
-      {% set maxval = tren | map(attribute='omzet') | max %}
-      {% for t in tren %}
-      <div class="bar-wrap" title="{{ t.tgl }}: {{ t.omzet | rupiah }}">
-        <div class="bar" style="height: {{ (t.omzet / maxval * 100) if maxval else 0 }}%"></div>
-        <span class="bar-label">{{ t.tgl[5:] }}</span>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="muted">Belum ada data.</p>
-    {% endif %}
-  </div>
-</div>
-
-<div class="card">
-  <h2>Daftar Transaksi {{ tanggal }}</h2>
-  {% if daftar %}
-  <table class="table">
-    <thead>
-      <tr><th>Kode</th><th>Jam</th><th class="right">Total</th><th class="right">Laba</th></tr>
-    </thead>
-    <tbody>
-      {% for t in daftar %}
-      <tr>
-        <td><a href="{{ url_for('transaksi_detail', tid=t.id) }}">{{ t.kode }}</a></td>
-        <td class="muted">{{ t.created_at[11:16] }}</td>
-        <td class="right">{{ t.total | rupiah }}</td>
-        <td class="right muted">{{ (t.total - t.kembali) | rupiah }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
   {% else %}
-  <p class="muted">Tidak ada transaksi pada {{ tanggal }}.</p>
+  <div class="empty">
+    <span class="ring">{{ icon('receipt') }}</span>
+    <span class="t">Tidak ada transaksi</span>
+    <span class="s">Belum ada transaksi tercatat pada {{ tanggal | tanggal_panjang_id }}.</span>
+  </div>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  // Ekspor CSV dibuat di sisi klien dari tabel yang sudah dirender.
+  // Tidak menambah endpoint baru; data berasal dari halaman laporan ini.
+  const tombol = document.getElementById('btnEkspor');
+  if (!tombol) return;
+
+  tombol.addEventListener('click', function () {
+    const tabel = document.querySelectorAll('.card table');
+    const baris = [];
+
+    // tabel pertama = barang terlaris, kedua = daftar transaksi
+    const bagian = [
+      { judul: 'BARANG TERLARIS', kolom: ['Barang', 'Terjual', 'Omzet'] },
+      { judul: 'DAFTAR TRANSAKSI', kolom: ['Kode', 'Jam', 'Total', 'Laba'] }
+    ];
+
+    baris.push(['Laporan', '{{ tanggal }}']);
+
+    let idx = 0;
+    document.querySelectorAll('.card table').forEach(function (t) {
+      const b = bagian[idx] || { judul: 'TABEL ' + (idx + 1), kolom: [] };
+      baris.push([]);
+      baris.push([b.judul]);
+      baris.push(b.kolom);
+      t.querySelectorAll('tbody tr').forEach(function (tr) {
+        const sel = [];
+        tr.querySelectorAll('td').forEach(function (td) {
+          sel.push(td.innerText.replace(/\s+/g, ' ').trim());
+        });
+        baris.push(sel);
+      });
+      idx++;
+    });
+
+    const csv = baris.map(function (r) {
+      return r.map(function (c) {
+        const s = String(c == null ? '' : c);
+        return /[",;\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      }).join(';');
+    }).join('\r\n');
+
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'laporan-warung-pos-{{ tanggal }}.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    WP.toast('Laporan diekspor ke CSV.', 'success');
+  });
+})();
+</script>
 {% endblock %}

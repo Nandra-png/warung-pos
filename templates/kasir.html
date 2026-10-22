@@ -1,234 +1,555 @@
 {% extends "base.html" %}
-{% block title %}Kasir - Kasir Sederhana{% endblock %}
+{% from "_icons.html" import icon %}
+{% block title %}Kasir - Warung Pos{% endblock %}
+
+{# Ikon produk dari kata kunci nama (tanpa emoji) #}
+{% macro ikon_barang(nama) -%}
+{%- set n = nama | lower -%}
+{%- set peta = [('beras','grains'), ('gula','grains'), ('tepung','grains'), ('garam','grains'),
+                ('kopi','coffee'), ('teh','cup'), ('susu','bottle'), ('sirup','bottle'),
+                ('minyak','droplet'), ('air','droplet'), ('sabun','droplet'),
+                ('telur','egg'), ('rokok','flame'), ('bumbu','flame'),
+                ('minuman','cup'), ('gas','flame'), ('tisu','layers')] -%}
+{%- set ns = namespace(g = 'package') -%}
+{%- for kata, ic in peta -%}
+  {%- if kata in n and ns.g == 'package' -%}{%- set ns.g = ic -%}{%- endif -%}
+{%- endfor -%}
+{{ icon(ns.g) }}
+{%- endmacro %}
+
+{% set KATEGORI = ['Sembako', 'Minuman', 'Bumbu', 'Lainnya'] %}
+
+{% macro kategori_barang(nama) -%}
+{%- set n = nama | lower -%}
+{%- if 'beras' in n or 'gula' in n or 'minyak' in n or 'tepung' in n or 'telur' in n
+      or 'mie' in n or 'garam' in n or 'sabun' in n or 'tisu' in n or 'rokok' in n -%}Sembako
+{%- elif 'kopi' in n or 'teh' in n or 'susu' in n or 'air' in n or 'sirup' in n
+      or 'minuman' in n or 'soda' in n or 'jus' in n -%}Minuman
+{%- elif 'bumbu' in n or 'kecap' in n or 'sambal' in n or 'saus' in n or 'merica' in n
+      or 'bawang' in n or 'cabai' in n or 'penyedap' in n or 'masako' in n or 'royco' in n -%}Bumbu
+{%- else -%}Lainnya
+{%- endif -%}
+{%- endmacro %}
 
 {% block content %}
-<h1>Kasir</h1>
-<p class="muted">Klik barang untuk menambah ke keranjang, lalu simpan transaksi.</p>
+<div class="page-head">
+  <a class="back-btn" href="{{ url_for('index') }}" aria-label="Kembali ke dashboard">{{ icon('arrow-left') }}</a>
+  <div>
+    <h1 class="page-title">Kasir</h1>
+    <p class="page-sub">Klik barang untuk menambah ke keranjang</p>
+  </div>
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <b>Menu</b>{{ icon('chevron-right') }}<span>Kasir</span>
+  </nav>
+</div>
 
 <div class="kasir-layout">
-  <div class="card">
-    <h2>Pilih Barang</h2>
-    <input type="text" id="cariBarang" class="input-full" placeholder="🔍 Cari barang..." oninput="filterBarang()">
-    <div class="produk-grid" id="produkGrid">
+
+  {# ============================ KOLOM TENGAH ============================ #}
+  <section aria-label="Daftar barang">
+
+    <div class="chips" role="tablist" aria-label="Filter kategori barang">
+      <button class="chip active" role="tab" aria-selected="true" data-kat="Semua" type="button">
+        {{ icon('grid') }}<span>Semua</span><span class="count" data-count="Semua">0</span>
+      </button>
+      {% for k in KATEGORI %}
+      <button class="chip" role="tab" aria-selected="false" data-kat="{{ k }}" type="button">
+        {{ icon('tag') }}<span>{{ k }}</span><span class="count" data-count="{{ k }}">0</span>
+      </button>
+      {% endfor %}
+    </div>
+
+    <div class="produk-grid" id="produkGrid" aria-busy="true">
       {% for b in barang_list %}
+      {% set stok_kelas = 'crit' if b.stok < 5 else ('low' if b.stok < 20 else 'ok') %}
       <button class="produk {{ 'produk-habis' if b.stok == 0 }}"
+              type="button"
               data-id="{{ b.id }}"
               data-nama="{{ b.nama }}"
               data-harga="{{ b.harga_jual }}"
               data-stok="{{ b.stok }}"
-              {% if b.stok == 0 %}disabled{% endif %}>
+              data-satuan="{{ b.satuan }}"
+              data-kat="{{ kategori_barang(b.nama) | trim }}"
+              data-gambar="{{ b['image_url'] if 'image_url' in b.keys() and b['image_url'] else '' }}"
+              aria-label="Tambah {{ b.nama }} ke keranjang"
+              {% if b.stok == 0 %}disabled aria-disabled="true"{% endif %}>
+        <span class="stok-badge {{ stok_kelas }}">
+          {% if b.stok == 0 %}Habis{% else %}{{ b.stok }} {{ b.satuan }}{% endif %}
+        </span>
+        <span class="produk-thumb">
+          {% if 'image_url' in b.keys() and b['image_url'] %}
+            <img src="{{ b['image_url'] }}" alt="" loading="lazy">
+          {% else %}
+            {{ ikon_barang(b.nama) }}
+          {% endif %}
+        </span>
         <span class="produk-nama">{{ b.nama }}</span>
         <span class="produk-harga">{{ b.harga_jual | rupiah }}</span>
-        <span class="produk-stok">stok {{ b.stok }} {{ b.satuan }}</span>
+        <span class="produk-satuan">per {{ b.satuan }}</span>
+        <span class="produk-add" aria-hidden="true">{{ icon('plus') }}</span>
       </button>
       {% else %}
-      <p class="muted">Belum ada barang. <a href="{{ url_for('barang_list') }}">Tambah dulu</a>.</p>
+      <div class="empty" style="grid-column: 1 / -1;">
+        <span class="ring">{{ icon('package') }}</span>
+        <span class="t">Belum ada barang</span>
+        <span class="s">Tambahkan barang dulu di halaman Barang.</span>
+        <a class="btn btn-soft" href="{{ url_for('barang_list') }}" style="margin-top:8px;">
+          {{ icon('plus', 'ico sm') }} Tambah Barang
+        </a>
+      </div>
       {% endfor %}
     </div>
-  </div>
+  </section>
 
-  <div class="card keranjang">
-    <h2>Keranjang</h2>
-    <div id="keranjangList" class="keranjang-list">
-      <p class="muted" id="keranjangKosong">Belum ada item.</p>
+  {# ============================ PANEL KERANJANG ============================ #}
+  <div class="drawer-backdrop hidden" id="cartBackdrop"></div>
+
+  <aside class="keranjang" id="cartPanel" aria-label="Keranjang transaksi">
+    <div class="cart-head">
+      <div>
+        <h2>Keranjang</h2>
+        <p class="sub">Transaksi baru</p>
+      </div>
+      <button class="close-btn" type="button" id="btnKosongHead"
+              aria-label="Kosongkan keranjang" title="Kosongkan keranjang">{{ icon('x') }}</button>
     </div>
 
-    <div class="total-box">
-      <div class="total-row"><span>Total</span><strong id="totalText">Rp 0</strong></div>
-      <label class="bayar-label">Uang Bayar
-        <input type="number" id="bayarInput" class="input-full" min="0" placeholder="0" oninput="hitungKembali()">
-      </label>
-      <div class="total-row kembali-row"><span>Kembalian</span><strong id="kembaliText">Rp 0</strong></div>
-      <label class="bayar-label">Catatan (opsional)
-        <input type="text" id="catatanInput" class="input-full" placeholder="cth: bon, pelanggan Bu Ani">
-      </label>
-      <button class="btn btn-primary btn-block" id="btnSimpan" onclick="simpanTransaksi()">💾 Simpan Transaksi</button>
-      <button class="btn btn-ghost btn-block" onclick="kosongkanKeranjang()">Kosongkan</button>
+    <div class="keranjang-list" id="keranjangList">
+      <div class="cart-empty" id="keranjangKosong">
+        <span class="ring">{{ icon('cart') }}</span>
+        <span class="t">Belum ada item</span>
+        <span class="s">Pilih barang di sebelah kiri untuk mulai transaksi.</span>
+      </div>
     </div>
-    <div id="kasirAlert" class="alert hidden"></div>
-  </div>
+
+    <div class="cart-summary">
+      <div class="sum-row"><span class="k">Subtotal</span><span class="v" id="subtotalText">Rp 0</span></div>
+      <div class="sum-row">
+        <span class="k">Diskon (opsional)</span>
+        <span class="v dim tiny" title="Belum aktif: tabel transaksi belum punya kolom diskon">Rp 0</span>
+      </div>
+      <div class="sum-row total"><span class="k">Total</span><span class="v" id="totalText">Rp 0</span></div>
+    </div>
+
+    <div class="field" style="margin-top:12px;">
+      <label for="bayarInput">Uang Bayar</label>
+      <input type="text" id="bayarInput" class="input-money" inputmode="numeric"
+             autocomplete="off" placeholder="0" aria-label="Uang bayar">
+    </div>
+
+    <div class="quick-amounts" style="margin-top:8px;">
+      <button class="quick" type="button" data-bayar="pas">Uang Pas</button>
+      <button class="quick" type="button" data-bayar="20000">20.000</button>
+      <button class="quick" type="button" data-bayar="50000">50.000</button>
+      <button class="quick" type="button" data-bayar="100000">100.000</button>
+    </div>
+
+    <div class="sum-row kembali-row" id="kembaliRow" style="margin-top:10px;">
+      <span class="k">Kembalian</span><span class="v" id="kembaliText">Rp 0</span>
+    </div>
+
+    <div class="field" style="margin-top:12px;">
+      <label for="catatanInput">Catatan (opsional)</label>
+      <input type="text" id="catatanInput" placeholder="cth: bon, pelanggan Bu Ani">
+    </div>
+
+    <div id="kasirAlert" class="alert alert-error hidden" role="alert"></div>
+
+    <div class="cart-actions">
+      <button class="btn btn-accent btn-lg btn-block" id="btnSimpan" type="button">
+        {{ icon('save', 'ico sm') }} Simpan Transaksi
+      </button>
+      <button class="btn btn-outline btn-block" id="btnKosongkan" type="button">
+        {{ icon('trash', 'ico sm') }} Kosongkan
+      </button>
+    </div>
+  </aside>
 </div>
 
-<div id="strukModal" class="modal hidden">
+{# FAB keranjang (tablet & mobile) #}
+<button class="fab-cart" type="button" id="fabCart" aria-label="Buka keranjang">
+  {{ icon('cart') }} Keranjang <span class="n" id="fabCount">0</span>
+</button>
+
+{# ============================ MODAL STRUK ============================ #}
+<div class="modal hidden" id="strukModal" aria-hidden="true" role="dialog" aria-label="Transaksi tersimpan">
   <div class="modal-box">
-    <h2>✅ Transaksi Tersimpan</h2>
+    <div class="card-head">
+      <span class="stat-ico is-green">{{ icon('check-circle') }}</span>
+      <div>
+        <h2>Transaksi Tersimpan</h2>
+        <p class="sub" id="strukKode">-</p>
+      </div>
+    </div>
     <div id="strukIsi"></div>
-    <button class="btn btn-primary btn-block" onclick="tutupStruk()">Tutup</button>
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-let keranjang = [];   // {id, nama, harga, qty, stok}
-const stokMap = {};
+(function () {
+  'use strict';
+  const R = WP.rupiah, A = WP.angka;
 
-document.querySelectorAll('.produk').forEach(el => {
-  stokMap[el.dataset.id] = parseInt(el.dataset.stok);
-  el.addEventListener('click', () => tambahItem(el.dataset));
-});
+  /* ---------- state keranjang ---------- */
+  let keranjang = [];            // {id, nama, harga, qty, stok, satuan}
+  const stokMap = {};
 
-function rupiah(n) {
-  return 'Rp ' + (n || 0).toLocaleString('id-ID');
-}
+  const grid     = document.getElementById('produkGrid');
+  const listBox  = document.getElementById('keranjangList');
+  const bayarIn  = document.getElementById('bayarInput');
+  const catatIn  = document.getElementById('catatanInput');
+  const btnSimpan= document.getElementById('btnSimpan');
+  const alertBox = document.getElementById('kasirAlert');
+  const panel    = document.getElementById('cartPanel');
+  const backdrop = document.getElementById('cartBackdrop');
+  const fabCount = document.getElementById('fabCount');
 
-function tambahItem(d) {
-  const id = d.id;
-  const ada = keranjang.find(x => x.id === id);
-  const stok = stokMap[id];
-  if (ada) {
-    if (ada.qty + 1 > stok) { alert('Stok ' + d.nama + ' hanya ' + stok); return; }
-    ada.qty++;
-  } else {
-    if (stok < 1) { alert('Stok habis'); return; }
-    keranjang.push({ id: id, nama: d.nama, harga: parseInt(d.harga), qty: 1, stok: stok });
-  }
-  render();
-}
+  /* ---------- skeleton singkat saat muat ---------- */
+  const asli = grid.innerHTML;
+  WP.skeleton(grid, 6, 'sk-card');
+  grid.removeAttribute('aria-busy');
+  setTimeout(function () { grid.innerHTML = asli; ikatProduk(); hitungJumlah(); }, 180);
 
-function ubahQty(id, delta) {
-  const it = keranjang.find(x => x.id === id);
-  if (!it) return;
-  it.qty += delta;
-  if (it.qty > it.stok) { it.qty = it.stok; alert('Stok maksimal ' + it.stok); }
-  if (it.qty <= 0) keranjang = keranjang.filter(x => x.id !== id);
-  render();
-}
-
-function hapusItem(id) {
-  keranjang = keranjang.filter(x => x.id !== id);
-  render();
-}
-
-function total() {
-  return keranjang.reduce((s, x) => s + x.harga * x.qty, 0);
-}
-
-function render() {
-  const box = document.getElementById('keranjangList');
-  if (!keranjang.length) {
-    box.innerHTML = '<p class="muted" id="keranjangKosong">Belum ada item.</p>';
-  } else {
-    box.innerHTML = keranjang.map(it => `
-      <div class="keranjang-item">
-        <div class="ki-info">
-          <strong>${it.nama}</strong>
-          <span class="muted">${rupiah(it.harga)} x ${it.qty} = ${rupiah(it.harga * it.qty)}</span>
-        </div>
-        <div class="ki-aksi">
-          <button class="btn btn-xs" onclick="ubahQty('${it.id}', -1)">−</button>
-          <span class="qty">${it.qty}</span>
-          <button class="btn btn-xs" onclick="ubahQty('${it.id}', 1)">+</button>
-          <button class="btn btn-xs btn-danger" onclick="hapusItem('${it.id}')">✕</button>
-        </div>
-      </div>`).join('');
-  }
-  document.getElementById('totalText').textContent = rupiah(total());
-  hitungKembali();
-}
-
-function hitungKembali() {
-  const bayar = parseInt(document.getElementById('bayarInput').value || 0);
-  const kembali = bayar - total();
-  document.getElementById('kembaliText').textContent =
-    rupiah(kembali > 0 ? kembali : 0);
-}
-
-function kosongkanKeranjang() {
-  if (keranjang.length && !confirm('Kosongkan keranjang?')) return;
-  keranjang = [];
-  document.getElementById('bayarInput').value = '';
-  document.getElementById('catatanInput').value = '';
-  render();
-}
-
-function showAlert(msg, tipe) {
-  const el = document.getElementById('kasirAlert');
-  el.textContent = msg;
-  el.className = 'alert alert-' + (tipe || 'error');
-}
-
-function filterBarang() {
-  const q = document.getElementById('cariBarang').value.toLowerCase();
-  document.querySelectorAll('.produk').forEach(el => {
-    el.style.display = el.dataset.nama.toLowerCase().includes(q) ? '' : 'none';
-  });
-}
-
-async function simpanTransaksi() {
-  if (!keranjang.length) { showAlert('Keranjang masih kosong.'); return; }
-
-  const bayarRaw = document.getElementById('bayarInput').value;
-  const bayar = bayarRaw === '' ? total() : parseInt(bayarRaw);
-  if (bayar < total()) { showAlert('Uang bayar kurang dari total.'); return; }
-
-  const payload = {
-    items: keranjang.map(x => ({ barang_id: x.id, qty: x.qty })),
-    bayar: bayar,
-    catatan: document.getElementById('catatanInput').value
-  };
-
-  const btn = document.getElementById('btnSimpan');
-  btn.disabled = true;
-  btn.textContent = 'Menyimpan...';
-
-  try {
-    const res = await fetch('{{ url_for("kasir_simpan") }}', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+  /* ---------- kategori ---------- */
+  function ikatProduk() {
+    grid.querySelectorAll('.produk').forEach(function (el) {
+      stokMap[el.dataset.id] = parseInt(el.dataset.stok, 10) || 0;
+      el.addEventListener('click', function () { tambahItem(el); });
     });
-    const data = await res.json();
-    if (!data.ok) { showAlert(data.error || 'Gagal menyimpan.'); return; }
-    tampilStruk(data);
-    keranjang = [];
-    document.getElementById('bayarInput').value = '';
-    document.getElementById('catatanInput').value = '';
-    render();
-    refreshStok();
-  } catch (e) {
-    showAlert('Error: ' + e.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '💾 Simpan Transaksi';
   }
-}
 
-function tampilStruk(d) {
-  document.getElementById('strukIsi').innerHTML = `
-    <p class="muted">Kode: <strong>${d.kode}</strong></p>
-    <table class="table">
-      <thead><tr><th>Item</th><th class="right">Qty</th><th class="right">Subtotal</th></tr></thead>
-      <tbody>
-        ${d.items.map(i => `<tr><td>${i.nama}</td><td class="right">${i.qty}</td><td class="right">${rupiah(i.subtotal)}</td></tr>`).join('')}
-      </tbody>
-    </table>
-    <div class="total-row"><span>Total</span><strong>${rupiah(d.total)}</strong></div>
-    <div class="total-row"><span>Bayar</span><strong>${rupiah(d.bayar)}</strong></div>
-    <div class="total-row kembali-row"><span>Kembali</span><strong>${rupiah(d.kembali)}</strong></div>
-    <p class="muted small">Struk lengkap: <a href="${d.struk_url}">buka halaman transaksi</a></p>`;
-  document.getElementById('strukModal').classList.remove('hidden');
-}
+  function hitungJumlah() {
+    const n = {};
+    let total = 0;
+    grid.querySelectorAll('.produk').forEach(function (el) {
+      const k = el.dataset.kat || 'Lainnya';
+      n[k] = (n[k] || 0) + 1;
+      total++;
+    });
+    n['Semua'] = total;
+    document.querySelectorAll('[data-count]').forEach(function (s) {
+      s.textContent = n[s.dataset.count] || 0;
+    });
+  }
 
-function tutupStruk() {
-  document.getElementById('strukModal').classList.add('hidden');
-}
+  document.querySelectorAll('.chip').forEach(function (c) {
+    c.addEventListener('click', function () {
+      document.querySelectorAll('.chip').forEach(function (x) {
+        x.classList.remove('active');
+        x.setAttribute('aria-selected', 'false');
+      });
+      c.classList.add('active');
+      c.setAttribute('aria-selected', 'true');
+      terapkanFilter();
+    });
+  });
 
-async function refreshStok() {
-  const res = await fetch('{{ url_for("api_barang") }}');
-  const list = await res.json();
-  list.forEach(b => {
-    stokMap[b.id] = b.stok;
-    const el = document.querySelector(`.produk[data-id="${b.id}"]`);
-    if (el) {
-      el.dataset.stok = b.stok;
-      el.querySelector('.produk-stok').textContent = `stok ${b.stok} ${b.satuan}`;
-      el.classList.toggle('produk-habis', b.stok === 0);
-      el.disabled = b.stok === 0;
+  let katAktif = 'Semua';
+  let kataCari = '';
+
+  function terapkanFilter() {
+    const chip = document.querySelector('.chip.active');
+    katAktif = chip ? chip.dataset.kat : 'Semua';
+    let tampil = 0;
+    grid.querySelectorAll('.produk').forEach(function (el) {
+      const cocokKat = katAktif === 'Semua' || el.dataset.kat === katAktif;
+      const cocokCari = !kataCari || el.dataset.nama.toLowerCase().indexOf(kataCari) > -1;
+      const ok = cocokKat && cocokCari;
+      el.style.display = ok ? '' : 'none';
+      if (ok) tampil++;
+    });
+    let kosong = grid.querySelector('.filter-kosong');
+    if (!tampil && grid.querySelector('.produk')) {
+      if (!kosong) {
+        kosong = document.createElement('div');
+        kosong.className = 'empty filter-kosong';
+        kosong.style.gridColumn = '1 / -1';
+        kosong.innerHTML = '<span class="ring">' + grid.querySelector('svg')?.outerHTML.replace('class="ico"', 'class="ico"') + '</span>' +
+          '<span class="t">Tidak ada barang cocok</span>' +
+          '<span class="s">Coba kata kunci atau kategori lain.</span>';
+        grid.appendChild(kosong);
+      }
+    } else if (kosong) {
+      kosong.remove();
+    }
+  }
+
+  /* pencarian: dukung topbar (halaman lain) & input internal */
+  const cariGlobal = document.getElementById('globalSearch');
+  function ikatCari(inp) {
+    if (!inp) return;
+    inp.addEventListener('input', function () {
+      kataCari = inp.value.trim().toLowerCase();
+      terapkanFilter();
+      if (kataCari && !grid.querySelector('.produk')) return;
+    });
+  }
+  ikatCari(cariGlobal);
+
+  if (cariGlobal) {
+    const f = cariGlobal.closest('form');
+    if (f) f.addEventListener('submit', function (e) { e.preventDefault(); });
+  }
+
+  /* ---------- keranjang ---------- */
+  function tambahItem(el) {
+    const id = el.dataset.id;
+    const stok = stokMap[id] || 0;
+    const ada = keranjang.find(function (x) { return x.id === id; });
+    if (ada) {
+      if (ada.qty + 1 > stok) { WP.toast('Stok ' + el.dataset.nama + ' hanya ' + stok, 'error'); return; }
+      ada.qty++;
+    } else {
+      if (stok < 1) { WP.toast('Stok ' + el.dataset.nama + ' habis', 'error'); return; }
+      keranjang.push({
+        id: id,
+        nama: el.dataset.nama,
+        harga: parseInt(el.dataset.harga, 10) || 0,
+        satuan: el.dataset.satuan || 'pcs',
+        qty: 1,
+        stok: stok,
+        ikon: (el.querySelector('.produk-thumb') || {}).innerHTML || ''
+      });
+    }
+    el.classList.add('pulse');
+    setTimeout(function () { el.classList.remove('pulse'); }, 280);
+    render();
+  }
+
+  function ubahQty(id, d) {
+    const it = keranjang.find(function (x) { return x.id === id; });
+    if (!it) return;
+    it.qty += d;
+    if (it.qty > it.stok) { it.qty = it.stok; WP.toast('Stok maksimal ' + it.stok, 'error'); }
+    if (it.qty <= 0) { keranjang = keranjang.filter(function (x) { return x.id !== id; }); }
+    render();
+  }
+
+  function hapusItem(id) {
+    keranjang = keranjang.filter(function (x) { return x.id !== id; });
+    render();
+  }
+
+  function total() {
+    return keranjang.reduce(function (s, x) { return s + x.harga * x.qty; }, 0);
+  }
+
+  function render() {
+    if (!keranjang.length) {
+      listBox.innerHTML =
+        '<div class="cart-empty" id="keranjangKosong">' +
+        '<span class="ring"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.2l2.3 11.4a1.8 1.8 0 0 0 1.8 1.4h8.6a1.8 1.8 0 0 0 1.8-1.4L21 7H6"/></svg></span>' +
+        '<span class="t">Belum ada item</span>' +
+        '<span class="s">Pilih barang untuk mulai transaksi.</span></div>';
+    } else {
+      listBox.innerHTML = keranjang.map(function (it) {
+        const inisial = it.nama.trim().charAt(0).toUpperCase();
+        return '<div class="keranjang-item">' +
+          '<span class="ki-thumb">' + (it.ikon.trim() ? it.ikon : inisial) + '</span>' +
+          '<span class="ki-info">' +
+            '<span class="ki-nama" title="' + it.nama + '">' + it.nama + '</span>' +
+            '<span class="ki-harga">' + R(it.harga) + ' / ' + it.satuan + '</span>' +
+          '</span>' +
+          '<span class="ki-aksi">' +
+            '<span class="qty-ctrl">' +
+              '<button class="qty-btn" type="button" data-qty="-1" data-id="' + it.id + '" aria-label="Kurangi ' + it.nama + '">' +
+                '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg></button>' +
+              '<span class="qty-num">' + it.qty + '</span>' +
+              '<button class="qty-btn plus" type="button" data-qty="1" data-id="' + it.id + '" aria-label="Tambah ' + it.nama + '">' +
+                '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>' +
+            '</span>' +
+            '<button class="ki-del" type="button" data-hapus="' + it.id + '" aria-label="Hapus ' + it.nama + '">' +
+              '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6"/><path d="M6 6l1 14a1.5 1.5 0 0 0 1.5 1.4h7A1.5 1.5 0 0 0 17 20l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>' +
+          '</span>' +
+        '</div>';
+      }).join('');
+    }
+
+    listBox.querySelectorAll('[data-qty]').forEach(function (b) {
+      b.addEventListener('click', function () { ubahQty(b.dataset.id, parseInt(b.dataset.qty, 10)); });
+    });
+    listBox.querySelectorAll('[data-hapus]').forEach(function (b) {
+      b.addEventListener('click', function () { hapusItem(b.dataset.hapus); });
+    });
+
+    document.getElementById('subtotalText').textContent = R(total());
+    document.getElementById('totalText').textContent = R(total());
+    const n = keranjang.reduce(function (s, x) { return s + x.qty; }, 0);
+    fabCount.textContent = n;
+    hitungKembali();
+  }
+
+  /* ---------- bayar & kembalian ---------- */
+  function bayarAngka() {
+    const v = bayarIn.value.trim();
+    if (v === '') return null;
+    return A(v);
+  }
+
+  function hitungKembali() {
+    const t = total();
+    const b = bayarAngka();
+    const row = document.getElementById('kembaliRow');
+    const txt = document.getElementById('kembaliText');
+
+    if (b === null || t === 0) {
+      row.classList.remove('kurang');
+      txt.textContent = R(0);
+    } else if (b < t) {
+      row.classList.add('kurang');
+      txt.textContent = 'Uang kurang ' + R(t - b);
+    } else {
+      row.classList.remove('kurang');
+      txt.textContent = R(b - t);
+    }
+    btnSimpan.disabled = !keranjang.length || b === null || b < t;
+  }
+
+  function formatBayar() {
+    const raw = A(bayarIn.value);
+    bayarIn.value = raw ? WP.fmt.format(raw) : '';
+    hitungKembali();
+  }
+
+  bayarIn.addEventListener('input', formatBayar);
+  bayarIn.addEventListener('focus', function () { bayarIn.select(); });
+
+  document.querySelectorAll('.quick').forEach(function (b) {
+    b.addEventListener('click', function () {
+      const t = total();
+      if (!t) { WP.toast('Keranjang masih kosong.', 'error'); return; }
+      let v = b.dataset.bayar;
+      if (v === 'pas') { v = t; }
+      bayarIn.value = WP.fmt.format(parseInt(v, 10));
+      hitungKembali();
+    });
+  });
+
+  /* ---------- kosongkan ---------- */
+  function kosongkan() {
+    if (!keranjang.length && !bayarIn.value && !catatIn.value) {
+      WP.toast('Keranjang sudah kosong.', 'info');
+      return;
+    }
+    if (!window.confirm('Kosongkan keranjang?')) return;
+    keranjang = [];
+    bayarIn.value = '';
+    catatIn.value = '';
+    alertBox.classList.add('hidden');
+    render();
+  }
+  document.getElementById('btnKosongkan').addEventListener('click', kosongkan);
+  document.getElementById('btnKosongHead').addEventListener('click', kosongkan);
+
+  /* ---------- panel keranjang (tablet & mobile) ---------- */
+  function bukaPanel() { panel.classList.add('open'); backdrop.classList.remove('hidden'); }
+  function tutupPanel() { panel.classList.remove('open'); backdrop.classList.add('hidden'); }
+  document.getElementById('fabCart').addEventListener('click', bukaPanel);
+  backdrop.addEventListener('click', tutupPanel);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') tutupPanel();
+  });
+
+  /* ---------- simpan transaksi ---------- */
+  function tampilPesan(msg, ok) {
+    alertBox.textContent = msg;
+    alertBox.className = 'alert ' + (ok ? 'alert-success' : 'alert-error');
+  }
+
+  btnSimpan.addEventListener('click', async function () {
+    const t = total();
+    if (!keranjang.length) { tampilPesan('Keranjang masih kosong.'); WP.toast('Keranjang masih kosong.', 'error'); return; }
+    const b = bayarAngka();
+    const bayar = b === null ? t : b;
+    if (bayar < t) { tampilPesan('Uang bayar kurang dari total.'); WP.toast('Uang bayar kurang.', 'error'); return; }
+
+    const label = btnSimpan.innerHTML;
+    btnSimpan.disabled = true;
+    btnSimpan.textContent = 'Menyimpan...';
+
+    try {
+      const res = await fetch('{{ url_for("kasir_simpan") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: keranjang.map(function (x) { return { barang_id: x.id, qty: x.qty }; }),
+          bayar: bayar,
+          catatan: catatIn.value
+        })
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        tampilPesan(data.error || 'Gagal menyimpan.');
+        WP.toast(data.error || 'Gagal menyimpan.', 'error');
+        return;
+      }
+      alertBox.classList.add('hidden');
+      tampilStruk(data);
+      WP.toast('Transaksi ' + data.kode + ' berhasil disimpan.', 'success');
+      keranjang = [];
+      bayarIn.value = '';
+      catatIn.value = '';
+      render();
+      refreshStok();
+      tutupPanel();
+    } catch (err) {
+      tampilPesan('Error: ' + err.message);
+      WP.toast('Gagal menghubungi server.', 'error');
+    } finally {
+      btnSimpan.innerHTML = label;
+      hitungKembali();
     }
   });
-}
 
-render();
+  /* ---------- struk ---------- */
+  function tampilStruk(d) {
+    document.getElementById('strukKode').textContent = d.kode;
+    document.getElementById('strukIsi').innerHTML =
+      '<div class="table-wrap"><table class="table"><thead><tr>' +
+      '<th>Item</th><th class="right">Qty</th><th class="right">Subtotal</th></tr></thead><tbody>' +
+      d.items.map(function (i) {
+        return '<tr><td>' + i.nama + '</td><td class="right num">' + i.qty +
+          '</td><td class="right num">' + R(i.subtotal) + '</td></tr>';
+      }).join('') +
+      '</tbody></table></div>' +
+      '<div class="struk-total">' +
+        '<div class="sum-row"><span class="k">Total</span><span class="v">' + R(d.total) + '</span></div>' +
+        '<div class="sum-row"><span class="k">Bayar</span><span class="v">' + R(d.bayar) + '</span></div>' +
+        '<div class="sum-row kembali-row"><span class="k">Kembali</span><span class="v">' + R(d.kembali) + '</span></div>' +
+      '</div>' +
+      '<div class="form-actions" style="margin-top:16px;">' +
+        '<a class="btn btn-accent" href="' + d.struk_url + '">' +
+          '<svg class="ico sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h12v19l-3-1.8-3 1.8-3-1.8-3 1.8v-19Z"/><path d="M9.5 7.5h5M9.5 11.5h5M9.5 15.5h3"/></svg> Lihat Struk</a>' +
+        '<button class="btn" type="button" data-tutup>Tutup</button>' +
+      '</div>';
+    WP.ikatModal('#strukModal');
+    WP.buka(document.getElementById('strukModal'));
+  }
+
+  /* ---------- refresh stok ---------- */
+  async function refreshStok() {
+    try {
+      const res = await fetch('{{ url_for("api_barang") }}');
+      const list = await res.json();
+      list.forEach(function (b) {
+        stokMap[b.id] = b.stok;
+        const el = grid.querySelector('.produk[data-id="' + b.id + '"]');
+        if (!el) return;
+        el.dataset.stok = b.stok;
+        const badge = el.querySelector('.stok-badge');
+        badge.className = 'stok-badge ' + (b.stok < 5 ? 'crit' : (b.stok < 20 ? 'low' : 'ok'));
+        badge.textContent = b.stok === 0 ? 'Habis' : b.stok + ' ' + b.satuan;
+        el.classList.toggle('produk-habis', b.stok === 0);
+        el.disabled = b.stok === 0;
+      });
+      keranjang.forEach(function (it) { it.stok = stokMap[it.id] || 0; });
+    } catch (e) { /* diamkan */ }
+  }
+
+  /* ---------- start ---------- */
+  render();
+})();
 </script>
 {% endblock %}
