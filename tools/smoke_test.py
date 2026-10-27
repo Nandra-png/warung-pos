@@ -48,7 +48,8 @@ try:
     r = c.get("/kasir")
     html = r.data.decode("utf-8", "replace")
     for tanda in ["produk-grid", "chips", "cart-summary", "quick-amounts",
-                  "btnSimpan", "fab-cart", "side-link", "theme-toggle",
+                  "btnSimpan", "fab-cart", "side-link", "tema-orb",
+                  "themeWipe", "temaPanggung", "pg-bulan-cut",
                   "data-theme", "Inter", "Ctrl K"]:
         ada = tanda in html
         hasil.append((f"  penanda kasir: {tanda}", "-", ada))
@@ -87,28 +88,40 @@ try:
     hasil.append(("POST /kasir/simpan (form)", r.status_code, data2.get("ok")))
 
     # --- CRUD barang (form) ---
+    # id barang baru diambil dari hasil tambah, JANGAN di-hardcode:
+    # database bisa sudah berisi barang lain, dan tes tidak boleh menyentuhnya.
     r = c.post("/barang/tambah", data={
         "nama": "Smoke Test Item", "harga_beli": "1000",
         "harga_jual": "1500", "stok": "7", "satuan": "pcs",
     }, follow_redirects=True)
     hasil.append(("POST /barang/tambah", r.status_code, b"Smoke Test Item" in r.data))
 
-    r = c.post("/barang/7/edit", data={
-        "nama": "Smoke Test Item Edit", "harga_beli": "1100",
-        "harga_jual": "1600", "stok": "9", "satuan": "pcs",
-    }, follow_redirects=True)
-    hasil.append(("POST /barang/7/edit", r.status_code, b"Smoke Test Item Edit" in r.data))
+    daftar = json.loads(c.get("/api/barang").data)
+    baru = [b for b in daftar if b["nama"] == "Smoke Test Item"]
+    bid = baru[0]["id"] if baru else None
+    hasil.append(("barang baru punya id", "-", bid is not None))
+
+    if bid:
+        r = c.post(f"/barang/{bid}/edit", data={
+            "nama": "Smoke Test Item Edit", "harga_beli": "1100",
+            "harga_jual": "1600", "stok": "9", "satuan": "pcs",
+        }, follow_redirects=True)
+        hasil.append((f"POST /barang/{bid}/edit", r.status_code,
+                      b"Smoke Test Item Edit" in r.data))
 
     r = c.post("/barang/99/hapus", follow_redirects=True)
     hasil.append(("POST /barang/99/hapus (id tak ada)", r.status_code,
                   b"tidak ditemukan" in r.data))
 
-    # cek barang id 7 sudah tidak ada di DB setelah hapus
-    r = c.post("/barang/7/hapus", follow_redirects=True)
-    sisa = json.loads(c.get("/api/barang").data)
-    hasil.append(("POST /barang/7/hapus", r.status_code,
-                  b"dihapus" in r.data and
-                  all("Smoke Test Item" not in b["nama"] for b in sisa)))
+    if bid:
+        r = c.post(f"/barang/{bid}/hapus", follow_redirects=True)
+        sisa = json.loads(c.get("/api/barang").data)
+        hasil.append((f"POST /barang/{bid}/hapus", r.status_code,
+                      b"dihapus" in r.data and
+                      all("Smoke Test Item" not in b["nama"] for b in sisa)))
+        # barang lain harus utuh
+        hasil.append(("barang lain tidak tersentuh", "-",
+                      len(sisa) == len(daftar) - 1))
 
     # --- stok turun setelah transaksi? ---
     r = c.get("/api/barang")

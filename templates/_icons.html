@@ -134,3 +134,85 @@
 {%- endif -%}
 </svg>
 {%- endmacro %}
+
+{# ---------------------------------------------------------------------------
+   theme_orb: ikon tema yang beranimasi matahari -> bulan.
+   Keadaan ditentukan class .is-dark pada tombolnya (bukan langsung data-theme),
+   supaya animasi bisa jalan SEBELUM palet halaman berganti.
+   mid dipakai untuk id mask, wajib beda kalau ada lebih dari satu orb per halaman.
+   --------------------------------------------------------------------------- #}
+{% macro theme_orb(mid='orb') -%}
+<svg class="ico orb" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <g class="orb-rays" stroke="currentColor" stroke-width="1.75" stroke-linecap="round">
+    <line x1="12" y1="1.1" x2="12" y2="3.3"/>
+    <line x1="12" y1="20.7" x2="12" y2="22.9"/>
+    <line x1="1.1" y1="12" x2="3.3" y2="12"/>
+    <line x1="20.7" y1="12" x2="22.9" y2="12"/>
+    <line x1="4.3" y1="4.3" x2="5.9" y2="5.9"/>
+    <line x1="18.1" y1="18.1" x2="19.7" y2="19.7"/>
+    <line x1="4.3" y1="19.7" x2="5.9" y2="18.1"/>
+    <line x1="18.1" y1="5.9" x2="19.7" y2="4.3"/>
+  </g>
+  <mask id="orb-mask-{{ mid }}">
+    <rect x="0" y="0" width="24" height="24" fill="#fff"/>
+    <circle class="orb-bite" cx="32" cy="5" r="8.6" fill="#000"/>
+  </mask>
+  <circle class="orb-disc" cx="12" cy="12" r="6.6" fill="currentColor"
+          mask="url(#orb-mask-{{ mid }})"/>
+</svg>
+{%- endmacro %}
+
+{# ---------------------------------------------------------------------------
+   panggung_tema: orb BESAR yang tampil di tengah layar saat blackout.
+   Meniru teknik Animasi_Siang_Malam.html: bentuk sabit dibuat dengan <mask>
+   berisi dua lingkaran (satu putih = badan bulan, satu hitam = potongan),
+   jadi hasilnya sabit, bukan bulat bolong.
+
+   Yang membedakan dari file referensi:
+     - ukuran jauh lebih kecil (cosmetic, lihat .tema-panggung di CSS)
+     - bulan naik sambil potongan bergeser, jadi terlihat "jadi sabit"
+     - tidak ada rotasi penuh 360 derajat (net efeknya nol, jadi dibuang)
+
+   Angka geometri (tidak boleh dikarang, sudah dihitung):
+     cakram bulan r=22, potongan r=19.8
+     potongan di (106,14) = 94.7% bulan terlihat (purnama)
+     potongan di (76,44)  = 72.6% bulan terlihat (sabit)
+   --------------------------------------------------------------------------- #}
+{% macro panggung_tema(mid='panggung') -%}
+<svg class="panggung-svg" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+  <defs>
+    <mask id="pgm-{{ mid }}">
+      <rect x="0" y="0" width="120" height="120" fill="#000"/>
+      <circle cx="60" cy="60" r="22" fill="#fff"/>
+      <circle class="pg-bulan-cut" cx="106" cy="14" r="19.8" fill="#000"/>
+    </mask>
+  </defs>
+
+  <g class="pg-bintang" fill="#FFFFFF">
+    <path transform="translate(90,27) scale(.78)" d="M0,-8Q0,0 8,0Q0,0 0,8Q0,0 -8,0Q0,0 0,-8Z"/>
+    <path transform="translate(100,43) scale(.54)" d="M0,-8Q0,0 8,0Q0,0 0,8Q0,0 -8,0Q0,0 0,-8Z"/>
+    <path transform="translate(24,90) scale(.48)" d="M0,-8Q0,0 8,0Q0,0 0,8Q0,0 -8,0Q0,0 0,-8Z"/>
+    <circle cx="18" cy="24" r=".96"/>
+    <circle cx="36" cy="15" r=".72"/>
+    <circle cx="102" cy="90" r=".84"/>
+  </g>
+
+  <g class="pg-matahari">
+    <g class="pg-sinar" stroke="#F5A623" stroke-width="5" stroke-linecap="round">
+      <line x1="88" y1="60" x2="96" y2="60"/>
+      <line x1="79.8" y1="39.8" x2="85.5" y2="34.5"/>
+      <line x1="60" y1="32" x2="60" y2="24"/>
+      <line x1="40.2" y1="39.8" x2="34.5" y2="34.5"/>
+      <line x1="32" y1="60" x2="24" y2="60"/>
+      <line x1="40.2" y1="80.2" x2="34.5" y2="85.5"/>
+      <line x1="60" y1="88" x2="60" y2="96"/>
+      <line x1="79.8" y1="80.2" x2="85.5" y2="85.5"/>
+    </g>
+    <circle cx="60" cy="60" r="18" fill="#F5A623"/>
+  </g>
+
+  <g class="pg-bulan">
+    <circle cx="60" cy="60" r="22" fill="#F4EFD8" mask="url(#pgm-{{ mid }})"/>
+  </g>
+</svg>
+{%- endmacro %}

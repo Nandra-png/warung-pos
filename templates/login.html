@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_icons.html" import icon %}
+{% from "_icons.html" import icon, theme_orb %}
 {% block title %}Masuk - Warung Pos{% endblock %}
 
 {# Halaman login tidak memakai shell sidebar #}
@@ -53,14 +53,12 @@
 
     <p class="demo">Demo login: <code>admin</code> / <code>admin123</code></p>
 
-    <div class="theme-toggle" style="margin-top:16px;">
-      <button class="theme-btn active" type="button" data-theme-set="light" aria-label="Tema terang">
-        {{ icon('sun') }}<span>Terang</span>
-      </button>
-      <button class="theme-btn" type="button" data-theme-set="dark" aria-label="Tema gelap">
-        {{ icon('moon') }}<span>Gelap</span>
-      </button>
-    </div>
+    <button class="tema-orb tema-orb--besar" type="button" data-theme-cycle
+            role="switch" aria-checked="false"
+            aria-label="Ganti tema terang atau gelap" title="Ganti tema">
+      <span class="orb-wrap">{{ theme_orb('login') }}</span>
+      <span class="txt">Tema</span>
+    </button>
   </div>
 </div>
 {% endblock %}

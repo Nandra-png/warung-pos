@@ -1,6 +1,6 @@
-{% from "_icons.html" import icon %}
+{% from "_icons.html" import icon, theme_orb, panggung_tema %}
 <!DOCTYPE html>
-<html lang="id" data-theme="light">
+<html lang="id" data-theme="light" class="no-transition">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -89,19 +89,12 @@
     </nav>
 
     <div class="side-foot">
-      <button class="side-collapse" type="button" data-theme-cycle
-              aria-label="Ganti tema terang atau gelap">
-        {{ icon('sun', 'ico sm') }}<span class="txt">Tema</span>
+      <button class="tema-orb" type="button" data-theme-cycle
+              role="switch" aria-checked="false"
+              aria-label="Ganti tema terang atau gelap" title="Ganti tema">
+        <span class="orb-wrap">{{ theme_orb('side') }}</span>
+        <span class="txt">Tema</span>
       </button>
-
-      <div class="theme-toggle" role="group" aria-label="Pilih tema tampilan">
-        <button class="theme-btn active" type="button" data-theme-set="light" aria-label="Tema terang">
-          {{ icon('sun') }}<span>Terang</span>
-        </button>
-        <button class="theme-btn" type="button" data-theme-set="dark" aria-label="Tema gelap">
-          {{ icon('moon') }}<span>Gelap</span>
-        </button>
-      </div>
 
       <div class="profile">
         <span class="avatar" aria-hidden="true">{{ (session.user or 'A')[0] }}</span>
@@ -141,6 +134,14 @@
                 aria-label="Buka catatan transaksi">
           {{ icon('note', 'ico sm') }}<span class="lbl">Catatan</span>
         </button>
+
+        {# di HP sidebar jadi bottom nav dan side-foot disembunyikan,
+           jadi tombol tema ditaruh di topbar #}
+        <button class="icon-btn orb-hp" type="button" data-theme-cycle
+                role="switch" aria-checked="false"
+                aria-label="Ganti tema terang atau gelap" title="Ganti tema">
+          <span class="orb-wrap">{{ theme_orb('hp') }}</span>
+        </button>
       </div>
     </header>
 
@@ -165,6 +166,9 @@
   </div>
 </div>
 {% endblock %}
+
+<div class="theme-wipe" id="themeWipe" aria-hidden="true"></div>
+<div class="tema-panggung" id="temaPanggung" aria-hidden="true">{{ panggung_tema('layar') }}</div>
 
 <div class="toast-wrap" id="toastWrap" aria-live="polite" aria-atomic="false"></div>
 

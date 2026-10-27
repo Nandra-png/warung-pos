@@ -236,27 +236,217 @@ svg.ico.xl { width: 30px; height: 30px; }
 }
 .side-collapse:hover { background: var(--hover-bg); }
 
-/* Toggle tema (segmented control) */
-.theme-toggle {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 3px;
-  background: var(--hover-bg);
-  border: 1px solid var(--border);
-  border-radius: 11px;
-  padding: 3px;
-}
-.theme-btn {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  height: 32px; border: 0; border-radius: 8px;
-  background: transparent; color: var(--text-muted);
-  font-size: 12px; font-weight: 600; cursor: pointer;
-  transition: var(--ease);
-}
-.theme-btn svg.ico { width: 16px; height: 16px; }
-.theme-btn:hover { color: var(--text-secondary); }
-.theme-btn.active {
+/* Toggle tema: satu tombol, ikonnya berubah matahari -> bulan */
+.tema-orb {
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  width: 100%; height: 44px; padding: 0 12px;
+  border: 1px solid var(--border); border-radius: 12px;
   background: var(--bg-card); color: var(--accent);
-  box-shadow: var(--sh-xs);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
 }
+.tema-orb:hover { background: var(--hover-bg); border-color: var(--border-strong); }
+.tema-orb:active { transform: scale(.97); }
+.tema-orb .txt { color: var(--text-secondary); }
+.tema-orb--besar { max-width: 220px; margin: 16px auto 0; }
+
+/* orb di topbar hanya muncul di HP */
+.orb-hp { display: none; color: var(--accent); }
+
+.orb-wrap { display: grid; place-items: center; width: 22px; height: 22px; flex: none; }
+
+/* orbit: cahaya lembut di sekeliling ikon saat mode gelap */
+.orb-wrap::before {
+  content: ""; position: absolute; width: 30px; height: 30px; border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-soft), transparent 68%);
+  opacity: 0; transform: scale(.5);
+  transition: opacity 420ms ease 140ms, transform 420ms ease 140ms;
+  pointer-events: none;
+}
+.tema-orb.is-dark .orb-wrap { position: relative; }
+.tema-orb.is-dark .orb-wrap::before { opacity: 1; transform: scale(1); }
+
+.orb { width: 21px; height: 21px; overflow: visible; }
+.orb-disc { transform-box: view-box; transform-origin: 12px 12px; transition: transform 460ms cubic-bezier(.34,1.4,.44,1); }
+.orb-bite { transform-box: view-box; transition: transform 460ms cubic-bezier(.34,1.4,.44,1) 40ms; }
+.orb-rays { opacity: 1; transition: opacity 200ms ease, transform 420ms ease; transform-box: view-box; transform-origin: 12px 12px; }
+
+/* Mode gelap: cakram mengecil sedikit dan potongan bergeser masuk dari kanan atas.
+   Angka geser BUKAN asal: potongan r=8.6 ditaruh 7.6 satuan dari pusat cakram
+   (r=6.07 setelah skala .92) supaya sisa cakram yang terlihat ~51 persen.
+   Kalau potongan ditaruh tepat di pusat, hasilnya bolong, bukan sabit. */
+.tema-orb.is-dark .orb-disc { transform: scale(.92); }
+.tema-orb.is-dark .orb-bite { transform: translate(-13.5px, 3px); }
+.tema-orb.is-dark .orb-rays { opacity: 0; transform: rotate(45deg) scale(.42); }
+
+/* ===========================================================================
+   TIRAI + PANGGUNG ORB
+   Alur ganti tema (3 babak, dijalankan app.js):
+     1. TIRAI MASUK   blok warna (terang: putih, gelap: hampir-hitam) menyebar
+                      dari tombol sampai menutupi penuh layar, sedikit buram
+                      di tepian lalu menajam.
+     2. PANGGUNG      orb besar muncul di tengah layar, matahari tenggelam
+                      dan berubah jadi bulan sabit (atau sebaliknya).
+     3. TIRAI KELUAR  blok yang sama diambil dari TITIK YANG SAMA dengan
+                      push-tirai-keluar: tidak ada seam. Palet sudah ditukar
+                      saat layar tertutup penuh, jadi tidak ada kedip.
+   =========================================================================== */
+
+.theme-wipe {
+  position: fixed; inset: 0; z-index: 9998;
+  pointer-events: none; visibility: hidden;
+  background: var(--wipe-bg, #0F1115);
+}
+.theme-wipe.on { visibility: visible; }
+
+/* Tepi tirai dibuat sedikit kabur dulu, baru tajam setelah menutupi penuh.
+   filter pada lapisan full-screen cuma 1 elemen, jadi aman untuk HP. */
+@keyframes sebar-tirai-masuk {
+  0%   { clip-path: circle(0px at var(--x, 50%) var(--y, 100%)); filter: blur(14px); }
+  35%  { filter: blur(7px); }
+  70%  { filter: blur(1.5px); }
+  100% { clip-path: circle(152vmax at var(--x, 50%) var(--y, 100%)); filter: blur(0px); }
+}
+/* Keluar dari titik yang sama: pada saat 0 bentuknya EXACTLY sama dengan
+   keadaan akhir animasi masuk, jadi tidak ada garis sambungan yang terlihat. */
+@keyframes push-tirai-keluar {
+  0%   { clip-path: circle(152vmax at var(--x, 50%) var(--y, 100%)); opacity: 1; }
+  100% { clip-path: circle(152vmax at var(--x, 50%) var(--y, 100%)); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .theme-wipe.on.masuk {
+    animation-name: sebar-tirai-masuk;
+    animation-duration: 560ms;
+    animation-timing-function: cubic-bezier(.66,0,.34,1);
+    animation-fill-mode: forwards;
+  }
+  .theme-wipe.on.keluar {
+    animation-name: push-tirai-keluar;
+    animation-duration: 480ms;
+    animation-timing-function: ease-in;
+    animation-fill-mode: forwards;
+  }
+}
+
+/* --------------------------- PANGGUNG ORB --------------------------- */
+.tema-panggung {
+  position: fixed; left: 50%; top: 50%;
+  width: 148px; height: 148px; margin: -74px 0 0 -74px;
+  z-index: 9999; pointer-events: none; visibility: hidden;
+  opacity: 1;
+  transition: opacity 340ms ease, filter 340ms ease;
+}
+.tema-panggung.on { visibility: visible; }
+/* Akhir adegan: orb hilang dengan redup + kabur, sesuai permintaan */
+.tema-panggung.pudar { opacity: 0; filter: blur(12px); }
+
+.panggung-svg {
+  width: 100%; height: 100%; display: block; overflow: visible;
+  filter: drop-shadow(0 6px 22px rgba(0, 0, 0, .30));
+}
+
+.pg-matahari, .pg-bulan, .pg-bintang { transform-box: view-box; transform-origin: 60px 60px; }
+
+/* Keadaan awal sebelum animasi mulai: matahari di atas, bulan tersembunyi */
+.pg-matahari { opacity: 1; }
+.pg-bulan    { opacity: 0; }
+.pg-bintang  { opacity: 0; }
+.pg-sinar    { opacity: 1; }
+/* Potongan jauh di kanan atas -> bulan tampak purnama (94.7 persen terlihat) */
+.pg-bulan-cut { transform-box: view-box; transform: translate(0, 0); }
+
+@keyframes pg-matahari-tenggelam {
+  0%   { transform: translateY(0)     scale(1);    opacity: 1; }
+  70%  { transform: translateY(16px)  scale(.94);  opacity: .85; }
+  100% { transform: translateY(30px)  scale(.88);  opacity: 0; }
+}
+@keyframes pg-sinar-memudar {
+  0%   { opacity: 1; transform: rotate(0deg)   scale(1); }
+  100% { opacity: 0; transform: rotate(58deg)  scale(.55); }
+}
+@keyframes pg-bulan-muncul {
+  0%   { opacity: 0; transform: translateY(26px) scale(.86); }
+  100% { opacity: 1; transform: translateY(0)    scale(1); }
+}
+/* Potongan bergeser masuk, jadi bulan makin tipis.
+   Titik akhir translate(-36,36) BUKAN angka asal: potongan mulai di (106,14)
+   yang berjarak 65 satuan dari pusat cakram; digeser 36 satuan diagonal
+   menyisakan jarak 14 satuan, dan pada jarak itu bulan terlihat ~48 persen
+   (sabit yang jelas). Kalau berhenti di 30 satuan, sisanya masih ~70 persen
+   sehingga bentuknya terbaca hampir purnama, bukan sabit. */
+@keyframes pg-cut-geser {
+  0%   { transform: translate(0, 0); }
+  100% { transform: translate(-36px, 36px); }
+}
+@keyframes pg-bintang-muncul {
+  0%   { opacity: 0; transform: scale(.86); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Arah gelap: matahari tenggelam, bulan sabit naik */
+.tema-panggung.ke-gelap .pg-matahari { animation: pg-matahari-tenggelam 620ms cubic-bezier(.5,0,.75,0) forwards; }
+.tema-panggung.ke-gelap .pg-sinar    { animation: pg-sinar-memudar 620ms cubic-bezier(.5,0,.75,0) forwards; }
+.tema-panggung.ke-gelap .pg-bulan    { animation: pg-bulan-muncul 560ms cubic-bezier(.22,1,.36,1) 480ms forwards; }
+.tema-panggung.ke-gelap .pg-bulan-cut{ animation: pg-cut-geser 700ms linear 520ms forwards; }
+.tema-panggung.ke-gelap .pg-bintang  { animation: pg-bintang-muncul 500ms ease-out 620ms forwards; }
+
+/* Arah terang: kebalikannya. Bulan tipis menipis habis lalu matahari naik. */
+.tema-panggung.ke-terang .pg-matahari { animation: pg-matahari-naik 700ms cubic-bezier(.22,1,.36,1) 460ms backwards; }
+.tema-panggung.ke-terang .pg-sinar    { animation: pg-sinar-muncul 620ms ease-out 620ms backwards; }
+.tema-panggung.ke-terang .pg-bulan    { animation: pg-bulan-hilang 560ms cubic-bezier(.5,0,.75,0) forwards; }
+.tema-panggung.ke-terang .pg-bulan-cut{ animation: pg-cut-jauh 620ms linear forwards; }
+.tema-panggung.ke-terang .pg-bintang  { animation: pg-bintang-hilang 420ms ease-in forwards; }
+
+@keyframes pg-matahari-naik {
+  0%   { transform: translateY(30px) scale(.88); opacity: 0; }
+  100% { transform: translateY(0)    scale(1);   opacity: 1; }
+}
+@keyframes pg-sinar-muncul {
+  0%   { opacity: 0; transform: rotate(58deg) scale(.55); }
+  100% { opacity: 1; transform: rotate(0deg)  scale(1); }
+}
+@keyframes pg-bulan-hilang {
+  0%   { opacity: 1; transform: translateY(0)    scale(1); }
+  100% { opacity: 0; transform: translateY(-26px) scale(.86); }
+}
+@keyframes pg-cut-jauh {
+  0%   { transform: translate(-36px, 36px); }
+  100% { transform: translate(0, 0); }
+}
+@keyframes pg-bintang-hilang {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Cadangan tanpa JavaScript / saat animasi dimatikan: panggung jangan tampil.
+   Keadaan ini juga dipakai kalau :has() belum didukung, jadi aman. */
+.tema-panggung:not(.on) { visibility: hidden; }
+
+/* Di layar sempit orb diperkecil supaya tidak mendominasi (permintaan:
+   "ukurannya jangan terlalu gede kayak di file itu, secukupnya aja"). */
+@media (max-width: 480px) {
+  .tema-panggung { width: 118px; height: 118px; margin: -59px 0 0 -59px; }
+}
+@media (max-height: 520px) {
+  .tema-panggung { width: 104px; height: 104px; margin: -52px 0 0 -52px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tema-panggung { display: none; }
+  .theme-wipe.on.masuk, .theme-wipe.on.keluar { animation: none; }
+}
+
+/* Saat tema benar-benar berganti, matikan transisi sekejap supaya tidak "merayap" */
+html.no-transition, html.no-transition * { transition: none !important; }
+
+/* Cadangan tanpa JavaScript: ikon orb tetap benar mengikuti data-theme.
+   (saat JS jalan, .is-dark pada tombol yang lebih dulu aktif,
+    makanya aturan ini ditulis paling akhir supaya menang saat tumpang tindih) */
+html[data-theme="dark"] .orb-disc { transform: scale(.92); }
+html[data-theme="dark"] .orb-bite { transform: translate(-13.5px, 3px); }
+html[data-theme="dark"] .orb-rays { opacity: 0; transform: rotate(45deg) scale(.42); }
+html[data-theme="dark"] .tema-orb .orb-wrap::before { opacity: 1; transform: scale(1); }
 
 /* Profil */
 .profile {
@@ -1120,6 +1310,7 @@ textarea { resize: vertical; min-height: 74px; }
 @media (min-width: 768px) and (max-width: 1279px) {
   .side-link span.txt,
   .side-collapse .txt,
+  .tema-orb .txt,
   .side-badge { display: none; }
 
   /* rail ikon: tidak boleh ada anak yang lebih lebar dari rail */
@@ -1147,7 +1338,7 @@ textarea { resize: vertical; min-height: 74px; }
   .sidebar { padding: 18px 10px 14px; align-items: center; }
   .side-head { justify-content: center; padding: 0 0 12px; }
   .brand, .side-label, .side-link span.txt, .side-badge,
-  .theme-toggle, .profile-meta, .side-sep {
+  .tema-orb .txt, .profile-meta, .side-sep {
     display: none;
   }
   .side-nav { width: 100%; }
@@ -1217,6 +1408,7 @@ textarea { resize: vertical; min-height: 74px; }
   .search .kbd { display: none; }
   .search input { padding-right: 14px; }
   .top-actions .btn .lbl { display: none; }
+  .orb-hp { display: grid; }
   .top-actions .btn { padding: 0 12px; }
 
   /* bottom nav: hanya 5 menu utama, item sama lebar, tidak bisa melipat */
