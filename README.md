@@ -62,6 +62,17 @@ satu warna aksen merah koral. HTML/CSS/JS saja, logika backend tidak diubah.
   `--bg-app: #F5F6FA`, `--bg-card: #FFFFFF`, `--accent-soft: #FEECEC`, dst.
 - Font Inter, ikon SVG inline Lucide (stroke 1.75) dari `templates/_icons.html`. Tidak ada emoji.
 - Tema Terang/Gelap, default Terang, pilihan disimpan di `localStorage`.
+- Ganti tema beranimasi tiga babak, dijalankan `gantiTema()` di `static/js/app.js`:
+  1. **Tirai masuk**: blok warna tema tujuan menyebar dari tombol yang diklik sampai
+     menutupi penuh layar; tepinya buram lalu menajam.
+  2. **Panggung orb**: di tengah layar matahari tenggelam dan berubah jadi bulan sabit
+     (atau kebalikannya). Palet ditukar di tengah babak ini, saat layar masih tertutup.
+  3. **Tirai keluar**: blok yang sama ditarik dari titik yang sama, jadi tidak ada sambungan.
+     Orb hilang dengan redup + kabur.
+- Bentuk sabit dibuat dengan satu `<mask>` berisi dua lingkaran (satu putih = badan bulan,
+  satu hitam = potongan), teknik yang sama dengan referensi `Animasi_Siang_Malam.html`.
+  Potongan digeser 36 satuan diagonal sehingga bulan terlihat ~48 persen, bukan bolong.
+- `prefers-reduced-motion: reduce` melewati seluruh animasi: tema langsung berganti.
 - Shell `templates/base.html`: sidebar + topbar + toast, dipakai semua halaman.
 
 ```
@@ -124,7 +135,21 @@ python tools/smoke_test.py        # semua route, POST kasir (JSON + form), CRUD 
 python tools/verify_tema.py       # token warna, tema default, bersih dari emoji/Jinja bocor, grafik 7 batang
 python tools/verify_responsif.py  # ukur DOM nyata: nav HP, tombol keranjang, rail ikon, target 44px
 python tools/snapshot_hp.py       # render HP 390/360 px + tablet 768 px, cek scroll samping
+node   tools/verify_animasi.mjs   # animasi ganti tema, pakai Chrome headless + jam NYATA via CDP
+node   tools/shot_animasi.mjs http://127.0.0.1:5000/kasir "$LOCALAPPDATA/Temp/wp-animasi"
+node   tools/shot_animasi.mjs http://127.0.0.1:5000/kasir "$LOCALAPPDATA/Temp/wp-animasi" reduced
 ```
+
+`verify_animasi.mjs` wajib dijalankan dengan **servernya hidup** (`python app.py`), karena
+ia menyambung ke URL aplikasi, bukan ke berkas lokal. Skrip ini membaca `getAnimations()`
+dan `getComputedStyle()` pada jam nyata: `--virtual-time-budget` milik Chrome headless
+membuat animasi CSS tidak pernah selesai, jadi angka berbasis waktu tidak bisa dipercaya di
+mode itu. Ia juga menghitung sendiri berkas PNG tangkapan layar (tanpa pustaka luar) untuk
+membuktikan bentuk bulan sabit dari PIXEL, bukan cuma dari angka transform.
+
+`shot_animasi.mjs` menyimpan rangkaian tangkapan layar tiap babak ke folder yang diberikan,
+dan dengan argumen ketiga `reduced` ia menguji jalur `prefers-reduced-motion` memakai
+`Emulation.setEmulatedMedia`.
 
 `verify_responsif.py` dan `snapshot_hp.py` memakai Chrome/Edge headless dan mengukur
 `getBoundingClientRect()`/`getComputedStyle()` pada viewport eksak, jadi hasilnya angka
